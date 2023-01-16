@@ -1,0 +1,2 @@
+# Component
+This is my attempt at writing my own Reactive Frontend JS Framework. The ideology and style of the framework is based on how I's like to write my frontend, so it is entirely subjective and could be entirely bad. Can't be bothered to write a readme of how it works or how to use it. I'll get around to that later once I've gotten some more work done on this.
