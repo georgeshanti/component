@@ -127,6 +127,11 @@ class Component<Props extends {[key: string]: any}>{
         return {};
     };
 }
+// class K extends Component<{}>{
+
+// }
+
+// new K({});
 
 class K extends Component<{text: string}>{
     constructor(props: {text: string}){

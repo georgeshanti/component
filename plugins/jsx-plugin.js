@@ -38,42 +38,21 @@ module.exports = function (babel) {
         ),
     ])
     
-    let nextNodeExpressionSetter = (childIndex, expression, parentIdentifier, previousIdentifier)=>t.blockStatement([
-        t.variableDeclaration(
-            "const",
-            [
-                t.variableDeclarator(
-                    t.objectPattern([
-                        t.objectProperty(nextNode, newNextNode),
-                        t.objectProperty(elementState, elementState),
-                    ]),
-                    t.callExpression(
-                        compareAndCreate,
-                        [
-                            t.memberExpression(t.memberExpression(templateState, t.identifier("children")), t.numericLiteral(childIndex), true),
-                            expression,
-                            parentIdentifier,
-                            previousIdentifier,
-                        ]
-                    )
-                )
-            ]
-        ),
-        t.expressionStatement(
-            t.assignmentExpression(
-                "=",
-                t.memberExpression(t.memberExpression(templateState, t.identifier("children")), t.numericLiteral(childIndex), true),
-                elementState
-            ),
-        ),
-        t.expressionStatement(
-            t.assignmentExpression(
-                "=",
-                previousIdentifier,
-                newNextNode,
-            ),
-        ),
-    ], []);
+    let nextNodeExpressionSetter = (childIndex, expression, parentIdentifier, previousIdentifier)=>t.expressionStatement(
+        t.assignmentExpression(
+            "=",
+            t.memberExpression(t.memberExpression(templateState, t.identifier("children")), t.numericLiteral(childIndex), true),
+            t.callExpression(
+                compareAndCreate,
+                [
+                    t.memberExpression(t.memberExpression(templateState, t.identifier("children")), t.numericLiteral(childIndex), true),
+                    expression,
+                    parentIdentifier,
+                    previousIdentifier,
+                ]
+            )
+        )
+    );
 
     let getNodeKey = (parentNodeIdentifier, childIndex)=>{
         let memberExpression;
@@ -184,9 +163,9 @@ module.exports = function (babel) {
                                     if(!localAnchorSet){
                                         localAnchorSet = true;
                                         if(childIndex==0){
-                                            statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, t.nullLiteral())));
+                                            statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, t.objectExpression([t.objectProperty(t.identifier("node"), t.nullLiteral())]))));
                                         }else{
-                                            statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, getNodeKeyVariable(currenAnchor))));
+                                            statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, t.objectExpression([t.objectProperty(t.identifier("node"), getNodeKeyVariable(currenAnchor))]))));
                                         }
                                     }
                                     statements.push(nextNodeExpressionSetter(templateChildIndex, componentJSXStatement(child.openingElement.name.name, child.openingElement.attributes), getNodeKeyVariable(nodeKey), anchor));
@@ -197,9 +176,9 @@ module.exports = function (babel) {
                                 if(!localAnchorSet){
                                     localAnchorSet = true;
                                     if(childIndex==0){
-                                        statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, t.nullLiteral())));
+                                        statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, t.objectExpression([t.objectProperty(t.identifier("node"), t.nullLiteral())]))));
                                     }else{
-                                        statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, getNodeKeyVariable(currenAnchor))));
+                                        statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, t.objectExpression([t.objectProperty(t.identifier("node"), getNodeKeyVariable(currenAnchor))]))));
                                     }
                                 }
                                 statements.push(nextNodeExpressionSetter(templateChildIndex, child.expression, getNodeKeyVariable(nodeKey), anchor));

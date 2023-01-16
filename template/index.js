@@ -46,56 +46,44 @@ function disposeElement(elementState){
 
 function createResult(result, parent, previousNode){
     if(result==null || result==undefined || result==false){
-        return {
-            elementState: null,
-            nextNode: previousNode
-        };
+        return null;
     }else if(typeof result==="string"){
         let nextNode = document.createTextNode(result);
-        if(previousNode!=null){
-            previousNode.after(nextNode);
+        if(previousNode.node!=null){
+            previousNode.node.after(nextNode);
         }else{
             parent.prepend(nextNode);
         }
+        previousNode.node=nextNode;
         return {
-            elementState:{
-                type: "string",
-                value: result,
-                domElement: nextNode,
-            },
-            nextNode: nextNode
+            type: "string",
+            value: result,
+            domElement: nextNode,
         }
     }else if(Array.isArray(result)){
         let children = [];
-        let newNextNode = previousNode;
         for(let childResult of result){
-            const {elementState, nextNode} = createResult(childResult, parent, newNextNode);
-            children.push(elementState);
-            newNextNode = nextNode;
+            const newElementState = createResult(childResult, parent, previousNode);
+            children.push(newElementState);
         }
         return {
-            elementState: {
-                type: "array",
-                children: children,
-            },
-            nextNode: newNextNode
+            type: "array",
+            children: children,
         };
     }else if(result.type=="component"){
         let componentObject = new result.component(result.props);
         let addToTree = componentObject.renderElement();
-        if(previousNode!=null){
-            previousNode.after(componentObject.domElement);
+        if(previousNode.node!=null){
+            previousNode.node.after(componentObject.domElement);
         }else{
             parent.prepend(componentObject.domElement);
         }
+        previousNode.node=componentObject.domElement;
         return {
-            elementState: {
-                type: "component",
-                component: result.component,
-                componentObject: componentObject,
-            },
-            nextNode: componentObject.domElement,
-        }
+            type: "component",
+            component: result.component,
+            componentObject: componentObject,
+        };
     }else if(result.type=="template"){
         let {domElement: nextNode, nodes} = result.template.clone();
         let templateState = {
@@ -104,19 +92,17 @@ function createResult(result, parent, previousNode){
             nodes: nodes,
         }
         result.templateFunction(templateState);
-        if(previousNode!=null){
-            previousNode.after(nextNode);
+        if(previousNode.node!=null){
+            previousNode.node.after(nextNode);
         }else{
             parent.prepend(nextNode);
         }
+        previousNode.node=nextNode;
         return {
-            elementState: {
-                type: "template",
-                template: result.template,
-                templateFunction: result.templateFunction,
-                templateState: templateState,
-            },
-            nextNode: nextNode,
+            type: "template",
+            template: result.template,
+            templateFunction: result.templateFunction,
+            templateState: templateState,
         };
     }else{
         throw "Unhandled condition";
@@ -126,27 +112,20 @@ function createResult(result, parent, previousNode){
 function replaceElement(elementState, result, parent, previousNode){
     if(elementState.type=="string"){
         if(elementState.value==result){
-            return {
-                elementState: elementState,
-                nextNode: elementState.domElement,
-            };
+            previousNode.node=elementState.domElement;
+            return elementState;
         }else{
             elementState.value=result;
             let domElement = document.createTextNode(result);
             elementState.domElement.replaceWith(domElement);
             elementState.domElement = domElement;
-            return {
-                elementState: elementState,
-                nextNode: domElement,
-            };
+            previousNode.node=domElement;
+            return elementState;
         }
     }else if(elementState.type=="array"){
         let index = 0;
-        let newPreviousNode = previousNode;
         while(index<elementState.children.length && index<result.length){
-            const  {elementState: newElementState, nextNode} = compareAndCreate(elementState.children[index], result[index], parent, newPreviousNode);
-            elementState.children[index]= newElementState;
-            newPreviousNode = nextNode;
+            elementState.children[index] = compareAndCreate(elementState.children[index], result[index], parent, previousNode);
             index++;
         }
         if(index<elementState.children.length){
@@ -157,28 +136,19 @@ function replaceElement(elementState, result, parent, previousNode){
         }
         if(index<result.length){
             while(index<result.length){
-                const  {elementState: newElementState, nextNode} = createResult(result[index], parent, newPreviousNode);
-                elementState.children[index] = newElementState;
-                newPreviousNode = nextNode;
+                elementState.children[index] = createResult(result[index], parent, previousNode);
                 index++;
             }
         }
-        return {
-            elementState: elementState,
-            nextNode: newPreviousNode,
-        };
+        return elementState;
     }else if(elementState.type=="component"){
         elementState.componentObject.updateWithProps(result.props);
-        return {
-            elementState: elementState,
-            nextNode: elementState.componentObject.domElement,
-        };
+        previousNode.node=elementState.componentObject.domElement;
+        return elementState;
     }else if(elementState.type=="template"){
         elementState.templateFunction(elementState.templateState);
-        return {
-            elementState: elementState,
-            nextNode: elementState.templateState.domElement,
-        };
+        previousNode.node=elementState.templateState.domElement;
+        return elementState;
     }else{
         throw "Unhandled condition";
     }
@@ -197,11 +167,7 @@ function compareAndCreate(elementState, result, parent, previousNode){
         return obj;
     }else if (elementState!=null && result==null){
         disposeElement(elementState);
-        let obj = {
-            elementState: null,
-            nextNode: previousNode,
-        }
-        return obj;
+        return null;
     }else if (elementState!=null && result!=null){
         if(
             (typeof result=="string" && elementState.type!="string") ||
@@ -216,11 +182,9 @@ function compareAndCreate(elementState, result, parent, previousNode){
             )
         ){
             disposeElement(elementState);
-            let obj = createResult(result, parent, previousNode);
-            return obj;
+            return createResult(result, parent, previousNode);
         }else{
-            let obj = replaceElement(elementState, result, parent, previousNode);
-            return obj;
+            return replaceElement(elementState, result, parent, previousNode);
         }
     }else{
         throw "Unhandled condition";
