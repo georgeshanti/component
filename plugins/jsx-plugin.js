@@ -1,19 +1,20 @@
 const trimRegex = /(^\s*)|(\s*$)/;
-const htmlTags = ["div", "span", "img"];
+const htmlTags = ["div", "span", "img", "br"];
+const {default: generate} = require("@babel/generator");
 
 module.exports = function (babel) {
     let t = babel.types;
 
     /* Declare common identifiers to be used */
     let template = t.identifier("template");
+    let templateClass = t.identifier("Template");
     let getElement = t.identifier("getElement");
     let compareAndCreate = t.identifier("compareAndCreate");
-
-    let parent = t.identifier("parent");
     let nextNode = t.identifier("nextNode");
     let newNextNode = t.identifier("newNextNode");
     let elementState = t.identifier("elementState");
     let templateState = t.identifier("templateState");
+    let anchor = t.identifier("anchor");
 
     /* Declare reused statements */
 
@@ -36,38 +37,8 @@ module.exports = function (babel) {
             )
         ),
     ])
-
-    let nextNodeInitializer = t.variableDeclaration(
-        "let",
-        [t.variableDeclarator(
-            nextNode,
-            t.nullLiteral(),
-        )]
-    );
-
-    let nextNodeElementSetter = t.expressionStatement(
-        t.assignmentExpression(
-            "=",
-            nextNode,
-            t.callExpression(
-                getElement,
-                [parent, nextNode]
-            )
-        )
-    );
     
-    let nextNodeChildFunction = (statements)=>t.expressionStatement(
-        t.callExpression(
-            t.arrowFunctionExpression(
-                [parent],
-                t.blockStatement(statements, []),
-                false
-            ),
-            [nextNode]
-        )
-    );
-    
-    let nextNodeExpressionSetter = (childIndex, expression)=>t.blockStatement([
+    let nextNodeExpressionSetter = (childIndex, expression, parentIdentifier, previousIdentifier)=>t.blockStatement([
         t.variableDeclaration(
             "const",
             [
@@ -81,8 +52,8 @@ module.exports = function (babel) {
                         [
                             t.memberExpression(t.memberExpression(templateState, t.identifier("children")), t.numericLiteral(childIndex), true),
                             expression,
-                            parent,
-                            nextNode,
+                            parentIdentifier,
+                            previousIdentifier,
                         ]
                     )
                 )
@@ -98,11 +69,23 @@ module.exports = function (babel) {
         t.expressionStatement(
             t.assignmentExpression(
                 "=",
-                nextNode,
+                previousIdentifier,
                 newNextNode,
             ),
         ),
     ], []);
+
+    let getNodeKey = (parentNodeIdentifier, childIndex)=>{
+        let memberExpression;
+        for(let i=0;i<childIndex+1;i++){
+            if(i==0){
+                memberExpression = t.memberExpression(parentNodeIdentifier, t.identifier("firstChild"));
+            }else{
+                memberExpression = t.memberExpression(memberExpression, t.identifier("nextSibling"));
+            }
+        }
+        return memberExpression;
+    }
 
     return {
         name: "jsx-plugin",
@@ -113,7 +96,26 @@ module.exports = function (babel) {
             
                 function createTemplateFunction(jsxElement){ 
                     let templateChildIndex = 0;
-                    function createHTMLString(jsxElement){
+                    let statements = [];
+
+                    let nodeMap = {};
+                    let getNodeKeyVariable = (nodeKey)=>{
+                        let key = generate(nodeKey,{}, '').code;
+                        if(!(key in nodeMap)){
+                            nodeMap[key] = [t.identifier(`elm${Object.keys(nodeMap).length}`), nodeKey];
+                        }
+                        return t.memberExpression(t.memberExpression(templateState, t.identifier("nodes")), nodeMap[key][0]);
+                    }
+
+                    let anchorElementAdded = false;
+                    let addAnchorElement = ()=>{
+                        if(!anchorElementAdded){
+                            anchorElementAdded = true;
+                            statements.unshift(t.variableDeclaration("let", [t.variableDeclarator(anchor, t.nullLiteral())]))
+                        }
+                    }
+
+                    function createHTMLString(jsxElement, nodeKey){
                         let statements = [];
                         let t = babel.types;
                         let openingElement = jsxElement.openingElement;
@@ -132,7 +134,7 @@ module.exports = function (babel) {
                                             t.assignmentExpression(
                                                 "=",
                                                 t.memberExpression(
-                                                    parent,
+                                                    getNodeKeyVariable(nodeKey),
                                                     t.identifier(attribute.name.name.toLowerCase())
                                                 ),
                                                 attribute.value.expression
@@ -144,7 +146,7 @@ module.exports = function (babel) {
                                         t.expressionStatement(
                                             t.callExpression(
                                                 t.memberExpression(
-                                                    parent,
+                                                    getNodeKeyVariable(nodeKey),
                                                     t.identifier("setAttribute")
                                                 ),
                                                 [t.stringLiteral(attribute.name.name), attribute.value.expression]
@@ -159,30 +161,48 @@ module.exports = function (babel) {
                         let children = jsxElement.children.map((x)=>x.type=="JSXText"?{...x, "value": x.value.replace(trimRegex, "")}:x);
                         children = children.filter((x)=>x.type!="JSXText" || x.value!="");
                         let htmlStrings = [];
-    
-                        let nextNodeInitializerAdded=false;
-                        let addNextNodeInitializer = ()=>{
-                            if(!nextNodeInitializerAdded) statements.push(nextNodeInitializer);
-                            nextNodeInitializerAdded=true;
-                        }
+
+                        let childIndex = 0;
+                        let localAnchorSet = false;
+                        let currenAnchor;
                         for(let child of children){
-                            addNextNodeInitializer();
                             if(child.type=="JSXText"){
                                 htmlStrings.push(child.value);
-                                statements.push(nextNodeElementSetter);
-                                console.log("found text element", JSON.stringify(child.value))
+                                localAnchorSet = false;
+                                currenAnchor = getNodeKey(nodeKey, childIndex);
+                                childIndex++;
                             }else if(child.type=="JSXElement"){
                                 if(htmlTags.includes(child.openingElement.name.name)){
-                                    const {htmlString: childhtmlString, statements: childStatements} = createHTMLString(child);
-                                    statements.push(nextNodeElementSetter);
-                                    childStatements.length>0?statements.push(nextNodeChildFunction(childStatements)):{};
+                                    const {htmlString: childhtmlString, statements: childStatements} = createHTMLString(child, getNodeKey(nodeKey, childIndex));
+                                    childStatements.length>0?statements.push(...childStatements):{};
                                     htmlStrings.push(childhtmlString);
+                                    localAnchorSet = false;
+                                    currenAnchor = getNodeKey(nodeKey, childIndex);
+                                    childIndex++;
                                 }else{
-                                    statements.push(nextNodeExpressionSetter(templateChildIndex, componentJSXStatement(child.openingElement.name.name, child.openingElement.attributes)));
+                                    addAnchorElement();
+                                    if(!localAnchorSet){
+                                        localAnchorSet = true;
+                                        if(childIndex==0){
+                                            statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, t.nullLiteral())));
+                                        }else{
+                                            statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, getNodeKeyVariable(currenAnchor))));
+                                        }
+                                    }
+                                    statements.push(nextNodeExpressionSetter(templateChildIndex, componentJSXStatement(child.openingElement.name.name, child.openingElement.attributes), getNodeKeyVariable(nodeKey), anchor));
                                     templateChildIndex++;
                                 }
                             }else if(child.type=="JSXExpressionContainer"){
-                                statements.push(nextNodeExpressionSetter(templateChildIndex, child.expression));
+                                addAnchorElement();
+                                if(!localAnchorSet){
+                                    localAnchorSet = true;
+                                    if(childIndex==0){
+                                        statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, t.nullLiteral())));
+                                    }else{
+                                        statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, getNodeKeyVariable(currenAnchor))));
+                                    }
+                                }
+                                statements.push(nextNodeExpressionSetter(templateChildIndex, child.expression, getNodeKeyVariable(nodeKey), anchor));
                                 templateChildIndex++;
                             }
                         }
@@ -190,25 +210,24 @@ module.exports = function (babel) {
                         return {htmlString, statements};
                     }
 
-                    const {htmlString, statements: childStatements} = createHTMLString(jsxElement, 0);
-                    let statements = [];
-                    if(childStatements.length>0){
-                        statements.push(
-                            t.variableDeclaration("let", [
-                                t.variableDeclarator(
-                                    nextNode,
-                                    t.memberExpression(templateState, t.identifier("domElement"))
-                                )
-                            ])
-                        );
-                        statements.push(nextNodeChildFunction(childStatements));
-                    }
+                    const {htmlString, statements: childStatements} = createHTMLString(jsxElement, t.identifier("domElement"));
+                    statements.push(...childStatements);
                     let templateIdentifier = t.identifier(`template_${templateCounter}`)
+                    let nodesInitializerArrowFunction = t.arrowFunctionExpression(
+                        [t.identifier("domElement")],
+                        t.blockStatement([
+                            t.returnStatement(
+                                t.objectExpression(Object.keys(nodeMap).map((x)=>{
+                                    return t.objectProperty(nodeMap[x][0], nodeMap[x][1])
+                                }))
+                            )
+                        ], [], false)
+                    );
                     let variableDeclarator = t.variableDeclarator(
                         templateIdentifier,
-                        t.callExpression(
-                            template,
-                            [t.stringLiteral(htmlString)]
+                        t.newExpression(
+                            templateClass,
+                            [t.stringLiteral(htmlString), nodesInitializerArrowFunction]
                         )
                     );
                     let variableDeclaration = t.variableDeclaration("const", [variableDeclarator]);
@@ -219,7 +238,7 @@ module.exports = function (babel) {
                         t.objectProperty(t.identifier("type"), t.stringLiteral("template")),
                         t.objectProperty(template, templateIdentifier),
                         t.objectProperty(t.identifier("templateFunction"), arrowFunction),
-                        t.objectProperty(t.identifier("templateName"), t.stringLiteral(`template_${templateCounter}`)),
+                        // t.objectProperty(t.identifier("templateName"), t.stringLiteral(`template_${templateCounter}`)),
                     ])
                     templateCounter++;
                     return object;
@@ -241,7 +260,7 @@ module.exports = function (babel) {
                 if(templateCounter>0){
                     let templateImporter = t.variableDeclarator(
                         t.objectPattern([
-                            t.objectProperty(template, template, false, true),
+                            t.objectProperty(templateClass, templateClass, false, true),
                             t.objectProperty(getElement, getElement, false, true),
                             t.objectProperty(compareAndCreate, compareAndCreate, false, true),
                         ]),

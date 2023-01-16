@@ -23,7 +23,6 @@ class Component<Props extends {[key: string]: any}>{
         let oldProps: Props = this.props;
         this.props = props;
         this.didUpdateProps(oldProps);
-        console.log("Got new props: ", this.props);
         return this.renderElement();
     }
 
@@ -54,10 +53,11 @@ class Component<Props extends {[key: string]: any}>{
                 this.domElement = componentObject.domElement;
             }
             else if(result.type=="template"){
-                let node = result.template.cloneNode(true);
+                let {domElement, nodes} = result.template.clone();
                 let templateState = {
-                    domElement: node,
-                    children: []
+                    domElement: domElement,
+                    children: [],
+                    nodes: nodes,
                 };
                 result.templateFunction(templateState)
                 this.elementState = {
@@ -93,9 +93,11 @@ class Component<Props extends {[key: string]: any}>{
                         componentObject: componentObject,
                     }
                 }else if(result.type=="template"){
+                    let {domElement, nodes} = result.template.clone();
                     let templateState = {
-                        domElement: result.template.cloneNode(true),
-                        children: []
+                        domElement: domElement,
+                        children: [],
+                        nodes: nodes,
                     };
                     result.templateFunction(templateState);
                     if(this.elementState.type=="component"){
@@ -129,7 +131,6 @@ class Component<Props extends {[key: string]: any}>{
 class K extends Component<{text: string}>{
     constructor(props: {text: string}){
         super(props);
-        console.log("Creating with props: ", this.props);
     }
 
     click(){
@@ -137,9 +138,8 @@ class K extends Component<{text: string}>{
     }
 
     render(): object {
-        console.log(this.props);
         return (
-            <div>{this.props.text}</div>
+            <div n="18">{this.props.text}</div>
         );
     };
 }
@@ -169,29 +169,29 @@ class G extends Component<{}>{
 
     render() {
         return (
-            <div>
-                <span onClick={this.toggleHello}>Click Hello</span>&nbsp;&nbsp;&nbsp;&nbsp;
-                <span onClick={this.toggleThere}>Click There</span>
-                <span onClick={this.changeText}>Click There</span>
-                <span></span>
-                <div></div>
-                <span><span></span></span>
-                { this.showHello && (<span>Hello</span>)}
-                { this.showThere && (<span>There</span>)}
-                <span>
-                    { true && (<span></span>)}
-                    <span></span>
-                    { true && (<span></span>)}
-                    <span></span>
+            <div n="1">
+                <span n="2" onClick={this.toggleHello}>Click Hello</span>&nbsp;&nbsp;&nbsp;&nbsp;
+                <span n="3" onClick={this.toggleThere}>Click There</span>
+                <span n="4" onClick={this.changeText}>Click There</span>
+                <span n="5"></span>
+                <div n="6"></div>
+                <span n="7"><span n="8"></span></span>
+                { this.showHello && (<span n="9">Hello</span>)}
+                { this.showThere && (<span n="10">There</span>)}
+                <span n="11">
+                    { true && (<span n="12"></span>)}
+                    <span n="13"></span>
+                    { true && (<span n="14"></span>)}
+                    <span n="15"></span>
                 </span>
-                <span></span>
+                <span n="16"></span>
                 <K text={this.k.toString()}/>
                 {
                     (this.k%2==0?[1]:[1, 2]).map(x=>{
-                        console.log(this.k, x, this.k+x);
                         return <K text={(this.k+x).toString()}/>
                     })
                 }
+                <div n="17">End</div>
             </div>
         );
     };
@@ -206,12 +206,13 @@ function attach(element: HTMLElement, result: any): any{
         component.renderElement();
         element.appendChild(component.domElement);
     }else if(result.type=="template"){
+        let {domElement, nodes} = result.template.clone();
         let templateState = {
-            domElement: result.template.cloneNode(true),
+            domElement: domElement,
             children: [],
+            nodes: nodes,
         }
         globalState = templateState;
-        let domElement = result.templateFunction(templateState);
         element.appendChild(domElement);
     }
 }

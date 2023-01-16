@@ -1,7 +1,22 @@
-function template(htmlString){
-    let templateElement = document.createElement('div');
-    templateElement.innerHTML = htmlString;
-    return templateElement.firstChild;
+class Template{
+    domElement;
+    nodesListFunction;
+
+    constructor(htmlString, nodesListFunction){
+        let templateElement = document.createElement('div');
+        templateElement.innerHTML = htmlString;
+        this.domElement = templateElement.firstChild;
+        this.nodesListFunction = nodesListFunction;
+    };
+
+    clone(){
+        let newDomElement = this.domElement.cloneNode(true);
+        let nodes = this.nodesListFunction(newDomElement);
+        return {
+            domElement: newDomElement,
+            nodes: nodes
+        };
+    }
 }
 
 function getElement(parent, nextNode){
@@ -82,10 +97,11 @@ function createResult(result, parent, previousNode){
             nextNode: componentObject.domElement,
         }
     }else if(result.type=="template"){
-        let nextNode = result.template.cloneNode(true);
+        let {domElement: nextNode, nodes} = result.template.clone();
         let templateState = {
             domElement: nextNode,
             children: [],
+            nodes: nodes,
         }
         result.templateFunction(templateState);
         if(previousNode!=null){
@@ -117,7 +133,6 @@ function replaceElement(elementState, result, parent, previousNode){
         }else{
             elementState.value=result;
             let domElement = document.createTextNode(result);
-            console.log("replacing text element");
             elementState.domElement.replaceWith(domElement);
             elementState.domElement = domElement;
             return {
@@ -128,16 +143,13 @@ function replaceElement(elementState, result, parent, previousNode){
     }else if(elementState.type=="array"){
         let index = 0;
         let newPreviousNode = previousNode;
-        console.log(elementState.children.length, result.length);
         while(index<elementState.children.length && index<result.length){
-            console.log(parent, newPreviousNode);
             const  {elementState: newElementState, nextNode} = compareAndCreate(elementState.children[index], result[index], parent, newPreviousNode);
             elementState.children[index]= newElementState;
             newPreviousNode = nextNode;
             index++;
         }
         if(index<elementState.children.length){
-            console.log("Deleting from end of the list");
             while(index<elementState.children.length){
                 disposeElement(elementState.children[elementState.children.length-1]);
                 elementState.children.pop();
@@ -215,4 +227,4 @@ function compareAndCreate(elementState, result, parent, previousNode){
     }
 }
 
-export { template, getElement, disposeElement, compareAndCreate };
+export { Template, getElement, disposeElement, compareAndCreate };
