@@ -137,7 +137,9 @@ module.exports = function (babel) {
                                 throw "Attribute value must either be a string or a JSXExpressionContainer ie. {}";
                             }
                         }
-                        let children = jsxElement.children.map((x)=>x.type=="JSXText"?{...x, "value": x.value.replace(trimRegex, "")}:x);
+                        let children = jsxElement.children.map((x)=>{
+                            return x.type=="JSXText"?{...x, "value": x.extra.raw.replace(trimRegex, "")}:x
+                        });
                         children = children.filter((x)=>x.type!="JSXText" || x.value!="");
                         let htmlStrings = [];
 
@@ -146,6 +148,7 @@ module.exports = function (babel) {
                         let currenAnchor;
                         for(let child of children){
                             if(child.type=="JSXText"){
+                                console.log(child.value);
                                 htmlStrings.push(child.value);
                                 localAnchorSet = false;
                                 currenAnchor = getNodeKey(nodeKey, childIndex);
@@ -171,7 +174,7 @@ module.exports = function (babel) {
                                     statements.push(nextNodeExpressionSetter(templateChildIndex, componentJSXStatement(child.openingElement.name.name, child.openingElement.attributes), getNodeKeyVariable(nodeKey), anchor));
                                     templateChildIndex++;
                                 }
-                            }else if(child.type=="JSXExpressionContainer"){
+                            }else if(child.type=="JSXExpressionContainer" && child.expression.type!='JSXEmptyExpression'){
                                 addAnchorElement();
                                 if(!localAnchorSet){
                                     localAnchorSet = true;
@@ -183,6 +186,8 @@ module.exports = function (babel) {
                                 }
                                 statements.push(nextNodeExpressionSetter(templateChildIndex, child.expression, getNodeKeyVariable(nodeKey), anchor));
                                 templateChildIndex++;
+                            }else{
+                                throw "Unknow type of child";
                             }
                         }
                         let htmlString = `<${tagName}${fixedAttributes.map(x=>` ${x.name}="${x.value}"`).join('')}>${htmlStrings.join('')}</${tagName}>`;

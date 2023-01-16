@@ -175,9 +175,9 @@ class G extends Component<{}>{
     render() {
         return (
             <div n="1">
-                <span n="2" onClick={this.toggleHello}>Click Hello</span>&nbsp;&nbsp;&nbsp;&nbsp;
-                <span n="3" onClick={this.toggleThere}>Click There</span>
-                <span n="4" onClick={this.changeText}>Click There</span>
+                <span n="2" onClick={this.toggleHello} style="background:green;padding:4px;display:inline-block;">Toggle Hello</span>&nbsp;&nbsp;&nbsp;&nbsp;
+                <span n="3" onClick={this.toggleThere} style="background:green;padding:4px;display:inline-block;">Toggle There</span>&nbsp;&nbsp;&nbsp;&nbsp;
+                <span n="4" onClick={this.changeText} style="background:green;padding:4px;display:inline-block;">Increment count and toggle list length</span>&nbsp;&nbsp;&nbsp;&nbsp;
                 <span n="5"></span>
                 <div n="6"></div>
                 <span n="7"><span n="8"></span></span>
@@ -196,7 +196,7 @@ class G extends Component<{}>{
                         return <K text={(this.k+x).toString()}/>
                     })
                 }
-                <div n="17">End</div>
+                {/* <div n="17">End</div> */}
             </div>
         );
     };
