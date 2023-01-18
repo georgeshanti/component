@@ -10,13 +10,34 @@ declare global {
     }
 }
 
+class Context{
+    parentComponentList: Component<any>[] = [];
+}
+
+function findParentOfType<Props extends {[key:string]: any}>(context: Context, parentType: typeof Component<Props>){
+    for(let i=context.parentComponentList.length-1;i>=0;i--){
+        if(context.parentComponentList[i] instanceof parentType) return context.parentComponentList[i];
+    }
+    return null;
+}
+
 class Component<Props extends {[key: string]: any}>{
     props: Props;
     elementState: {[key: string]: any} | null = null;
     domElement?: HTMLElement;
+    context?: Context;
+    markedForRerender: boolean = false;
 
     constructor(props: Props){
         this.props = props;
+    }
+
+    attachContext(context: Context){
+        this.context = context;
+    }
+
+    dettachContext(){
+        this.context = undefined;
     }
 
     updateWithProps(props: Props){
@@ -36,12 +57,18 @@ class Component<Props extends {[key: string]: any}>{
 
     renderElement(): boolean{
         let result: any = this.render();
+        if(this.context==undefined){
+            return false;
+        }
         if(result==null || result==undefined || result==false){
             throw "render() function returned null/undefined/false. Must return a JSX element.";
         }
         if(typeof result=="string" || Array.isArray(result)){
             throw "render() function returned a string/array. Must return a JSX element";
         }
+        let childContext = new Context();
+        childContext.parentComponentList = [...this.context!.parentComponentList];
+        childContext.parentComponentList.push(this);
         if(this.elementState==null){
             if(result.type=="component"){
                 let componentObject = new result.component(result.props);
@@ -50,6 +77,8 @@ class Component<Props extends {[key: string]: any}>{
                     component: result.component,
                     componentObject: componentObject,
                 }
+                componentObject.attachContext(childContext);
+                componentObject.renderElement();
                 this.domElement = componentObject.domElement;
             }
             else if(result.type=="template"){
@@ -59,13 +88,13 @@ class Component<Props extends {[key: string]: any}>{
                     children: [],
                     nodes: nodes,
                 };
-                result.templateFunction(templateState)
                 this.elementState = {
                     type: "template",
                     template: result.template,
                     templateFunction: result.templateFunction,
                     templateState: templateState,
                 }
+                result.templateFunction(templateState, childContext);
                 this.domElement = this.elementState.templateState.domElement;
             }else{
                 throw "render() function returned a string/array. Must return a JSX element of an HTML tag or a Component"
@@ -77,20 +106,22 @@ class Component<Props extends {[key: string]: any}>{
                 this.domElement = this.elementState.componentObject.domElement;
                 return false;
             }else if(this.elementState.type=="template" && result.type=="template" && this.elementState.template==result.template){
-                result.templateFunction(this.elementState.templateState);
+                result.templateFunction(this.elementState.templateState, childContext);
                 return false;
             }else{
                 if(result.type=="component"){
                     let componentObject = new result.component(result.props);
-                    if(this.elementState.type=="component"){
-                        this.elementState.componentObject.domElement.replaceWith(componentObject.domElement);
-                    }else{
-                        this.elementState.templateState.domElement.replaceWith(componentObject.domElement);
-                    }
                     this.elementState = {
                         type: "component",
                         component: result.component,
                         componentObject: componentObject,
+                    }
+                    componentObject.attachContext(childContext);
+                    componentObject.renderElement();
+                    if(this.elementState.type=="component"){
+                        this.elementState.componentObject.domElement.replaceWith(componentObject.domElement);
+                    }else{
+                        this.elementState.templateState.domElement.replaceWith(componentObject.domElement);
                     }
                 }else if(result.type=="template"){
                     let {domElement, nodes} = result.template.clone();
@@ -99,17 +130,17 @@ class Component<Props extends {[key: string]: any}>{
                         children: [],
                         nodes: nodes,
                     };
-                    result.templateFunction(templateState);
-                    if(this.elementState.type=="component"){
-                        this.elementState.componentObject.domElement.replaceWith(templateState.domElement);
-                    }else{
-                        this.elementState.templateState.domElement.replaceWith(templateState.domElement);
-                    }
                     this.elementState = {
                         type: "template",
                         template: result.template,
                         templateFunction: result.templateFunction,
                         templateState: result.templateFunction(templateState),
+                    }
+                    result.templateFunction(templateState, childContext);
+                    if(this.elementState.type=="component"){
+                        this.elementState.componentObject.domElement.replaceWith(templateState.domElement);
+                    }else{
+                        this.elementState.templateState.domElement.replaceWith(templateState.domElement);
                     }
                 }else{
                     throw "render() function returned a string/array. Must return a JSX element of an HTML tag or a Component"
@@ -127,15 +158,15 @@ class Component<Props extends {[key: string]: any}>{
         return {};
     };
 }
-// class K extends Component<{}>{
-
-// }
-
-// new K({});
 
 class K extends Component<{text: string}>{
     constructor(props: {text: string}){
         super(props);
+    }
+
+    attachContext(context: Context): void {
+        super.attachContext(context);
+        console.log(findParentOfType(this.context!, G));
     }
 
     click(){
@@ -205,9 +236,11 @@ class G extends Component<{}>{
 let globalState: any;
 
 function attach(element: HTMLElement, result: any): any{
+    let context: Context = new Context();
     if(result.type=="component"){
         let component = new result.component(result.props);
         globalState = component;
+        component.attachContext(context);
         component.renderElement();
         element.appendChild(component.domElement);
     }else if(result.type=="template"){
@@ -216,8 +249,9 @@ function attach(element: HTMLElement, result: any): any{
             domElement: domElement,
             children: [],
             nodes: nodes,
-        }
+        };
         globalState = templateState;
+        result.templateFunction(templateState, context);
         element.appendChild(domElement);
     }
 }

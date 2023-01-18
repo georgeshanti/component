@@ -44,7 +44,7 @@ function disposeElement(elementState){
     }
 }
 
-function createResult(result, parent, previousNode){
+function createResult(result, parent, previousNode, context){
     if(result==null || result==undefined || result==false){
         return null;
     }else if(typeof result==="string"){
@@ -63,7 +63,7 @@ function createResult(result, parent, previousNode){
     }else if(Array.isArray(result)){
         let children = [];
         for(let childResult of result){
-            const newElementState = createResult(childResult, parent, previousNode);
+            const newElementState = createResult(childResult, parent, previousNode, context);
             children.push(newElementState);
         }
         return {
@@ -72,6 +72,7 @@ function createResult(result, parent, previousNode){
         };
     }else if(result.type=="component"){
         let componentObject = new result.component(result.props);
+        componentObject.attachContext(context);
         let addToTree = componentObject.renderElement();
         if(previousNode.node!=null){
             previousNode.node.after(componentObject.domElement);
@@ -91,7 +92,7 @@ function createResult(result, parent, previousNode){
             children: [],
             nodes: nodes,
         }
-        result.templateFunction(templateState);
+        result.templateFunction(templateState, context);
         if(previousNode.node!=null){
             previousNode.node.after(nextNode);
         }else{
@@ -109,7 +110,7 @@ function createResult(result, parent, previousNode){
     }
 }
 
-function replaceElement(elementState, result, parent, previousNode){
+function replaceElement(elementState, result, parent, previousNode, context){
     if(elementState.type=="string"){
         if(elementState.value==result){
             previousNode.node=elementState.domElement;
@@ -125,7 +126,7 @@ function replaceElement(elementState, result, parent, previousNode){
     }else if(elementState.type=="array"){
         let index = 0;
         while(index<elementState.children.length && index<result.length){
-            elementState.children[index] = compareAndCreate(elementState.children[index], result[index], parent, previousNode);
+            elementState.children[index] = compareAndCreate(elementState.children[index], result[index], parent, previousNode, context);
             index++;
         }
         if(index<elementState.children.length){
@@ -136,7 +137,7 @@ function replaceElement(elementState, result, parent, previousNode){
         }
         if(index<result.length){
             while(index<result.length){
-                elementState.children[index] = createResult(result[index], parent, previousNode);
+                elementState.children[index] = createResult(result[index], parent, previousNode, context);
                 index++;
             }
         }
@@ -154,7 +155,7 @@ function replaceElement(elementState, result, parent, previousNode){
     }
 }
 
-function compareAndCreate(elementState, result, parent, previousNode){
+function compareAndCreate(elementState, result, parent, previousNode, context){
     result = result==false?null:result;
     if(elementState==null && result==null){
         let obj = {
@@ -163,7 +164,7 @@ function compareAndCreate(elementState, result, parent, previousNode){
         }
         return obj;
     }else if (elementState==null && result!=null){
-        let obj = createResult(result, parent, previousNode);
+        let obj = createResult(result, parent, previousNode, context);
         return obj;
     }else if (elementState!=null && result==null){
         disposeElement(elementState);
@@ -182,9 +183,9 @@ function compareAndCreate(elementState, result, parent, previousNode){
             )
         ){
             disposeElement(elementState);
-            return createResult(result, parent, previousNode);
+            return createResult(result, parent, previousNode, context);
         }else{
-            return replaceElement(elementState, result, parent, previousNode);
+            return replaceElement(elementState, result, parent, previousNode, context);
         }
     }else{
         throw "Unhandled condition";

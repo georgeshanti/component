@@ -43,7 +43,7 @@ module.exports = {
     ]
   },
   optimization: {
-    // minimize: false,
+    minimize: false,
   },
 
   // Default mode for Webpack is production.

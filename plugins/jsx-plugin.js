@@ -15,6 +15,7 @@ module.exports = function (babel) {
     let elementState = t.identifier("elementState");
     let templateState = t.identifier("templateState");
     let anchor = t.identifier("anchor");
+    let context = t.identifier("context");
 
     /* Declare reused statements */
 
@@ -49,6 +50,7 @@ module.exports = function (babel) {
                     expression,
                     parentIdentifier,
                     previousIdentifier,
+                    context,
                 ]
             )
         )
@@ -174,18 +176,20 @@ module.exports = function (babel) {
                                     statements.push(nextNodeExpressionSetter(templateChildIndex, componentJSXStatement(child.openingElement.name.name, child.openingElement.attributes), getNodeKeyVariable(nodeKey), anchor));
                                     templateChildIndex++;
                                 }
-                            }else if(child.type=="JSXExpressionContainer" && child.expression.type!='JSXEmptyExpression'){
-                                addAnchorElement();
-                                if(!localAnchorSet){
-                                    localAnchorSet = true;
-                                    if(childIndex==0){
-                                        statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, t.objectExpression([t.objectProperty(t.identifier("node"), t.nullLiteral())]))));
-                                    }else{
-                                        statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, t.objectExpression([t.objectProperty(t.identifier("node"), getNodeKeyVariable(currenAnchor))]))));
+                            }else if(child.type=="JSXExpressionContainer"){
+                                if(child.expression.type!="JSXEmptyExpression"){
+                                    addAnchorElement();
+                                    if(!localAnchorSet){
+                                        localAnchorSet = true;
+                                        if(childIndex==0){
+                                            statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, t.objectExpression([t.objectProperty(t.identifier("node"), t.nullLiteral())]))));
+                                        }else{
+                                            statements.push(t.expressionStatement(t.assignmentExpression("=", anchor, t.objectExpression([t.objectProperty(t.identifier("node"), getNodeKeyVariable(currenAnchor))]))));
+                                        }
                                     }
+                                    statements.push(nextNodeExpressionSetter(templateChildIndex, child.expression, getNodeKeyVariable(nodeKey), anchor));
+                                    templateChildIndex++;
                                 }
-                                statements.push(nextNodeExpressionSetter(templateChildIndex, child.expression, getNodeKeyVariable(nodeKey), anchor));
-                                templateChildIndex++;
                             }else{
                                 throw "Unknow type of child";
                             }
@@ -216,7 +220,7 @@ module.exports = function (babel) {
                     );
                     let variableDeclaration = t.variableDeclaration("const", [variableDeclarator]);
                     currentProgram.body.unshift(variableDeclaration);
-                    let arrowFunction = t.arrowFunctionExpression([templateState], t.blockStatement(statements, []), false);
+                    let arrowFunction = t.arrowFunctionExpression([templateState, context], t.blockStatement(statements, []), false);
 
                     let object = t.objectExpression([
                         t.objectProperty(t.identifier("type"), t.stringLiteral("template")),
