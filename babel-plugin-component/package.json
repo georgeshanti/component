@@ -1,0 +1,11 @@
+{
+  "name": "babel-plugin-component",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "@babel/generator": "^7.20.7"
+  },
+  "author": "George Thomas Shanti",
+  "license": "ISC"
+}
