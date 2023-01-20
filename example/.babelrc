@@ -1,4 +1,4 @@
 {
-    "presets": [["@babel/preset-typescript", {"allowNamespaces": true, "allowDeclareFields": true}]],
+    "presets": ["@babel/preset-typescript"],
     "plugins": ["component/babel-plugin-component"]
 }
