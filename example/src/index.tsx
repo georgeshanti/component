@@ -1,8 +1,11 @@
-import { Component, Context, findParentOfType, attach } from "component";
+import { Component, Context, findParentOfType, attach, createRef, Ref } from "component";
 
 class K extends Component<{text: string}>{
+    ref: Ref;
+
     constructor(props: {text: string}){
         super(props);
+        this.ref = createRef();
     }
 
     attachContext(context: Context): void {
@@ -11,12 +14,12 @@ class K extends Component<{text: string}>{
     }
 
     click(){
-        console.log("Click action");
+        console.log(this.ref);
     }
 
     render(): any {
         return (
-            <div n="18">{this.props.text}</div>
+            <div n="18" onClick={this.click.bind(this)} ref={this.ref}>{this.props.text}</div>
         );
     };
 }

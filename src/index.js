@@ -1,6 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.attach = exports.Component = exports.findParentOfType = exports.Context = exports.compareAndCreate = exports.Template = void 0;
+exports.attach = exports.Component = exports.findParentOfType = exports.Context = exports.compareAndCreate = exports.Template = exports.createRef = void 0;
+function createRef() {
+    return { element: undefined };
+}
+exports.createRef = createRef;
 class Template {
     constructor(htmlString, nodesListFunction) {
         let templateElement = document.createElement('div');

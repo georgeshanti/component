@@ -4,6 +4,8 @@ declare global {
             div: any;
             span: any;
             img: any;
+            form: any;
+            input: any;
         }
     }
 }
@@ -18,6 +20,10 @@ type TemplateState = {
         [key: string]: Node;
     };
 };
+type Ref = {
+    element?: Node;
+};
+export declare function createRef(): Ref;
 export declare class Template {
     domElement: Node;
     nodesListFunction: NodesListFunction;

@@ -1,5 +1,5 @@
 const trimRegex = /(^\s*)|(\s*$)/;
-const htmlTags = ["div", "span", "img", "br"];
+const htmlTags = ["div", "span", "img", "br", "form", "input"];
 const {default: generate} = require("@babel/generator");
 
 module.exports = function (babel) {
@@ -106,7 +106,17 @@ module.exports = function (babel) {
                             if(attribute.value.type=="StringLiteral"){
                                 fixedAttributes.push({name: attribute.name.name, value: attribute.value.value});
                             }else if(attribute.value.type=="JSXExpressionContainer"){
-                                if(attribute.name.name=="onClick"){
+                                if(attribute.name.name=="ref"){
+                                    statements.push(
+                                        t.expressionStatement(
+                                            t.assignmentExpression(
+                                                "=",
+                                                t.memberExpression(attribute.value.expression, t.identifier("element")),
+                                                getNodeKeyVariable(nodeKey)
+                                            )
+                                        )
+                                    )
+                                }else if(["onClick", "onSubmit"].includes(attribute.name.name)){
                                     statements.push(
                                         t.expressionStatement(
                                             t.assignmentExpression(
