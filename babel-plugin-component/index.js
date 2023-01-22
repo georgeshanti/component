@@ -157,7 +157,6 @@ module.exports = function (babel) {
                         let currenAnchor;
                         for(let child of children){
                             if(child.type=="JSXText"){
-                                console.log(child.value);
                                 htmlStrings.push(child.value);
                                 localAnchorSet = false;
                                 currenAnchor = getNodeKey(nodeKey, childIndex);

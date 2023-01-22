@@ -30,6 +30,10 @@ module.exports = {
         exclude: /(node_modules)/,
         use: {
           loader: 'babel-loader',
+          options: {
+              "presets": ["@babel/preset-typescript"],
+              "plugins": ["component/babel-plugin-component", "component/babel-plugin-component-hmr"]
+          }
         },
         resolve: {
           extensions: ['.ts', '.tsx'],

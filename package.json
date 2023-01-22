@@ -3,6 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "./src/index.js",
+  "exports": {
+    ".": "./.",
+    "./babel-plugin-component": "./babel-plugin-component",
+    "./babel-plugin-component-hmr": "./babel-plugin-component-hmr",
+    "./registry": "./registry"
+  },
   "author": "",
   "license": "ISC",
   "devDependencies": {

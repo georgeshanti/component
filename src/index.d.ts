@@ -4,6 +4,7 @@ declare global {
             div: any;
             span: any;
             img: any;
+            br: {};
             form: any;
             input: any;
         }
@@ -20,7 +21,7 @@ type TemplateState = {
         [key: string]: Node;
     };
 };
-type Ref = {
+export type Ref = {
     element?: Node;
 };
 export declare function createRef(): Ref;
@@ -70,7 +71,7 @@ type TemplateResult = {
 type Result = undefined | null | false | string | Result[] | ComponentResult | TemplateResult;
 type ElementState = undefined | null | TextNodeState | ArrayElementState | ComponentState | TemplateElementState;
 type NodeWrapper = {
-    node: Node;
+    node: Node | null;
 };
 export declare function compareAndCreate(elementState: ElementState, result: Result, parent: Node, previousNode: NodeWrapper, context: Context): ElementState;
 export declare class Context {

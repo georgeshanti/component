@@ -133,6 +133,14 @@ function replaceElement(elementState, _result, parent, previousNode, context) {
             let domElement = document.createTextNode(result);
             elementState.domElement.replaceWith(domElement);
             elementState.domElement = domElement;
+            /* START For hot reload */
+            if (previousNode.node != null) {
+                previousNode.node.after(domElement);
+            }
+            else {
+                parent.prepend(domElement);
+            }
+            /* END For hot reload */
             previousNode.node = domElement;
             return elementState;
         }
@@ -161,12 +169,39 @@ function replaceElement(elementState, _result, parent, previousNode, context) {
     else if (elementState.type == "component") {
         let result = _result;
         elementState.componentObject.updateWithProps(result.props);
+        /* START For hot reload */
+        if (previousNode.node != null) {
+            previousNode.node.after(elementState.componentObject.domElement);
+        }
+        else {
+            parent.prepend(elementState.componentObject.domElement);
+        }
+        /* END For hot reload */
         previousNode.node = elementState.componentObject.domElement;
         return elementState;
     }
     else if (elementState.type == "template") {
         let result = _result;
-        elementState.templateFunction(elementState.templateState, context);
+        /* Without hot reload */
+        /* elementState.templateFunction(elementState.templateState, context); */
+        /* Without hot reload */
+        /* START For hot reload */
+        let { domElement, nodes } = result.template.clone();
+        let oldDomElement = elementState.templateState.domElement;
+        elementState.templateState = {
+            domElement: domElement,
+            children: elementState.templateState.children,
+            nodes: nodes,
+        };
+        result.templateFunction(elementState.templateState, context);
+        oldDomElement.replaceWith(domElement);
+        if (previousNode.node != null) {
+            previousNode.node.after(elementState.templateState.domElement);
+        }
+        else {
+            parent.prepend(elementState.templateState.domElement);
+        }
+        /* END For hot reload */
         previousNode.node = elementState.templateState.domElement;
         return elementState;
     }
@@ -298,7 +333,20 @@ class Component {
                 return false;
             }
             else if (this.elementState.type == "template" && result.type == "template" && this.elementState.template == result.template) {
+                /* START For hot reload */
+                let { domElement, nodes } = result.template.clone();
+                let oldDomElement = this.elementState.templateState.domElement;
+                this.elementState.templateState = {
+                    domElement: domElement,
+                    children: this.elementState.templateState.children,
+                    nodes: nodes,
+                };
+                /* END For hot reload */
                 result.templateFunction(this.elementState.templateState, childContext);
+                /* START For hot reload */
+                oldDomElement.replaceWith(domElement);
+                this.domElement = domElement;
+                /* END For hot reload */
                 return false;
             }
             else {
@@ -336,7 +384,7 @@ class Component {
                         type: "template",
                         template: result.template,
                         templateFunction: result.templateFunction,
-                        templateState: result.templateFunction(templateState),
+                        templateState: templateState,
                     };
                 }
                 else {
@@ -355,29 +403,23 @@ class Component {
     ;
 }
 exports.Component = Component;
-let globalState;
+let rootElemntUid;
+let rootElementStates;
 function attach(element, result) {
+    if (rootElementStates == undefined) {
+        rootElementStates = {};
+        rootElemntUid = 0;
+    }
+    let elementUid = element.getAttribute("element-uid");
+    let elementState = null;
     let context = new Context();
-    if (result.type == "component") {
-        let component = new result.component(result.props);
-        globalState = component;
-        component.attachContext(context);
-        component.renderElement();
-        element.appendChild(component.domElement);
+    if (elementUid == null) {
+        elementUid = (rootElemntUid++).toString();
+        element.setAttribute("element-uid", elementUid);
     }
-    else if (result.type == "template") {
-        let { domElement, nodes } = result.template.clone();
-        let templateState = {
-            domElement: domElement,
-            children: [],
-            nodes: nodes,
-        };
-        globalState = templateState;
-        result.templateFunction(templateState, context);
-        element.appendChild(domElement);
+    else {
+        elementState = rootElementStates[elementUid];
     }
+    rootElementStates[elementUid] = compareAndCreate(elementState, result, element, { node: null }, context);
 }
 exports.attach = attach;
-window.print = () => {
-    console.log(globalState);
-};

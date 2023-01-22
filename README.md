@@ -1,6 +1,12 @@
 # Component
 This is a Javascript library to build UIs using reactive Components. It can be used by itself or as a way to just creative reactive components for use in other projects.
 
+What all I've managed to add so far:
+1. Reactivity - Build components with JSX that changes as its dependencies change
+2. Local State - Each component has its own state
+3. Global State - Build top level stateful component that can be accessed anywhere without having to pass it around.
+4. Hot Reload - Watch your pages update as you write them while still preserving state.
+
 ## Installation
 Clone this repository and add it as a dependency to your npm project. You will also need to add babel dependencies becuase the JSX compiler is written as a babel plugin.
 ```
