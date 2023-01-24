@@ -1,5 +1,6 @@
 const trimRegex = /(^\s*)|(\s*$)/;
 const htmlTags = ["a", "b", "br", "div", "form", "h1", "h2", "h3", "h4", "h5", "i", "img", "input", "li", "ol", "p", "span", "ul"]
+const htmlSingleTags = ["br"];
 const {default: generate} = require("@babel/generator");
 
 module.exports = function (babel) {
@@ -155,6 +156,10 @@ module.exports = function (babel) {
                         let childIndex = 0;
                         let localAnchorSet = false;
                         let currenAnchor;
+                        if(htmlSingleTags.includes(tagName)){
+                            let htmlString = `<${tagName}${fixedAttributes.map(x=>` ${x.name}="${x.value}"`).join('')}>`;
+                            return {htmlString, statements};
+                        }
                         for(let child of children){
                             if(child.type=="JSXText"){
                                 htmlStrings.push(child.value);
