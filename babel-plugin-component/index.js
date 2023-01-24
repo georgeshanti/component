@@ -1,5 +1,5 @@
 const trimRegex = /(^\s*)|(\s*$)/;
-const htmlTags = ["div", "span", "img", "br", "form", "input"];
+const htmlTags = ["a", "b", "br", "div", "form", "h1", "h2", "h3", "h4", "h5", "i", "img", "input", "li", "ol", "p", "span", "ul"]
 const {default: generate} = require("@babel/generator");
 
 module.exports = function (babel) {

@@ -1,12 +1,24 @@
 declare global {
     namespace JSX {
         interface IntrinsicElements {
-            div: any;
-            span: any;
-            img: any;
+            a: any;
+            b: any;
             br: {};
+            div: any;
             form: any;
+            h1: any;
+            h2: any;
+            h3: any;
+            h4: any;
+            h5: any;
+            i: any;
+            img: any;
             input: any;
+            li: any;
+            ol: any;
+            p: any;
+            span: any;
+            ul: any;
         }
     }
 }
