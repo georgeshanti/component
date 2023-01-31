@@ -330,6 +330,7 @@ export class Component<Props extends {[key: string]: any}>{
     domElement?: Node;
     context?: Context;
     markedForRerender: boolean = false;
+    addToContextTree: boolean = false;
 
     constructor(props: Props){
         this.props = props;
@@ -371,7 +372,7 @@ export class Component<Props extends {[key: string]: any}>{
         }
         let childContext = new Context();
         childContext.parentComponentList = [...this.context!.parentComponentList];
-        childContext.parentComponentList.push(this);
+        if(this.addToContextTree) childContext.parentComponentList.push(this);
         if(this.elementState==null){
             if(result.type=="component"){
                 let componentObject = new result.component(result.props);
