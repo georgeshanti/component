@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.attach = exports.Component = exports.findParentOfType = exports.Context = exports.compareAndCreate = exports.Template = exports.createRef = void 0;
+exports.attach = exports.Sub = exports.Component = exports.BaseComponent = exports.findParentOfType = exports.Context = exports.compareAndCreate = exports.Template = exports.createRef = void 0;
 function createRef() {
     return { element: undefined };
 }
@@ -46,11 +46,15 @@ function disposeElement(elementState) {
     }
 }
 function createResult(result, parent, previousNode, context) {
-    if (result == null || result == undefined || result == false) {
+    console.log(result, typeof result, typeof result === "string");
+    if (result == null || result == undefined || result === false) {
+        console.log("It came in here");
         return null;
     }
     else if (typeof result === "string") {
+        console.log(result, parent, previousNode);
         let nextNode = document.createTextNode(result);
+        console.log(nextNode);
         if (previousNode.node != null) {
             previousNode.node.after(nextNode);
         }
@@ -80,12 +84,12 @@ function createResult(result, parent, previousNode, context) {
         componentObject.attachContext(context);
         let addToTree = componentObject.renderElement();
         if (previousNode.node != null) {
-            previousNode.node.after(componentObject.domElement);
+            previousNode.node.after(componentObject.getDomElement());
         }
         else {
-            parent.prepend(componentObject.domElement);
+            parent.prepend(componentObject.getDomElement());
         }
-        previousNode.node = componentObject.domElement;
+        previousNode.node = componentObject.getDomElement();
         return {
             type: "component",
             component: result.component,
@@ -125,6 +129,18 @@ function replaceElement(elementState, _result, parent, previousNode, context) {
     if (elementState.type == "string") {
         let result = _result;
         if (elementState.value == result) {
+            // START For hot reload
+            elementState.value = result;
+            let domElement = document.createTextNode(result);
+            elementState.domElement.replaceWith(domElement);
+            elementState.domElement = domElement;
+            if (previousNode.node != null) {
+                previousNode.node.after(domElement);
+            }
+            else {
+                parent.prepend(domElement);
+            }
+            // END For hot reload
             previousNode.node = elementState.domElement;
             return elementState;
         }
@@ -133,14 +149,14 @@ function replaceElement(elementState, _result, parent, previousNode, context) {
             let domElement = document.createTextNode(result);
             elementState.domElement.replaceWith(domElement);
             elementState.domElement = domElement;
-            /* START For hot reload */
+            // START For hot reload
             if (previousNode.node != null) {
                 previousNode.node.after(domElement);
             }
             else {
                 parent.prepend(domElement);
             }
-            /* END For hot reload */
+            // END For hot reload
             previousNode.node = domElement;
             return elementState;
         }
@@ -169,23 +185,23 @@ function replaceElement(elementState, _result, parent, previousNode, context) {
     else if (elementState.type == "component") {
         let result = _result;
         elementState.componentObject.updateWithProps(result.props);
-        /* START For hot reload */
+        // START For hot reload
         if (previousNode.node != null) {
-            previousNode.node.after(elementState.componentObject.domElement);
+            previousNode.node.after(elementState.componentObject.getDomElement());
         }
         else {
-            parent.prepend(elementState.componentObject.domElement);
+            parent.prepend(elementState.componentObject.getDomElement());
         }
-        /* END For hot reload */
-        previousNode.node = elementState.componentObject.domElement;
+        // END For hot reload
+        previousNode.node = elementState.componentObject.getDomElement();
         return elementState;
     }
     else if (elementState.type == "template") {
         let result = _result;
-        /* Without hot reload */
-        /* elementState.templateFunction(elementState.templateState, context); */
-        /* Without hot reload */
-        /* START For hot reload */
+        // Without hot reload
+        // elementState.templateFunction(elementState.templateState, context);
+        // Without hot reload
+        // START For hot reload
         let { domElement, nodes } = result.template.clone();
         let oldDomElement = elementState.templateState.domElement;
         elementState.templateState = {
@@ -201,7 +217,7 @@ function replaceElement(elementState, _result, parent, previousNode, context) {
         else {
             parent.prepend(elementState.templateState.domElement);
         }
-        /* END For hot reload */
+        // END For hot reload
         previousNode.node = elementState.templateState.domElement;
         return elementState;
     }
@@ -210,19 +226,26 @@ function replaceElement(elementState, _result, parent, previousNode, context) {
     }
 }
 function compareAndCreate(elementState, result, parent, previousNode, context) {
-    result = result == false ? null : result;
+    console.log(result);
+    result = (typeof result == "boolean" && result == false) ? null : result;
+    result = (typeof result == "number") ? result.toString() : result;
+    console.log(result, typeof result);
     if (elementState == null && result == null) {
+        console.log("1 here");
         return null;
     }
     else if (elementState == null && result != null) {
+        console.log("2 here");
         let obj = createResult(result, parent, previousNode, context);
         return obj;
     }
     else if (elementState != null && result == null) {
+        console.log("3 here");
         disposeElement(elementState);
         return null;
     }
     else if (elementState != null && result != null) {
+        console.log("4 here");
         if ((typeof result == "string" && elementState.type != "string") ||
             (Array.isArray(result) && elementState.type != "array") ||
             ((typeof result != "string" && !Array.isArray(result)) &&
@@ -255,10 +278,11 @@ function findParentOfType(context, parentType) {
     return null;
 }
 exports.findParentOfType = findParentOfType;
-class Component {
+class BaseComponent {
+    getDomElement() {
+        throw "Unimplemented";
+    }
     constructor(props) {
-        this.elementState = null;
-        this.markedForRerender = false;
         this.props = props;
     }
     attachContext(context) {
@@ -271,12 +295,32 @@ class Component {
         let oldProps = this.props;
         this.props = props;
         this.didUpdateProps(oldProps);
-        return this.renderElement();
+        this.renderElement();
+    }
+    renderElement() {
+        throw "Unimplemented";
     }
     didUpdateProps(oldProps) { }
-    dispose() {
-        if (this.elementState != null) {
-            disposeElement(this.elementState);
+    dispose() { }
+}
+exports.BaseComponent = BaseComponent;
+class Component extends BaseComponent {
+    constructor(props) {
+        super(props);
+        this.elementState = null;
+        this.markedForRerender = false;
+        this.addToContextTree = false;
+    }
+    getDomElement() {
+        var _a, _b;
+        if (((_a = this.elementState) === null || _a === void 0 ? void 0 : _a.type) == "component") {
+            return this.elementState.componentObject.getDomElement();
+        }
+        else if (((_b = this.elementState) === null || _b === void 0 ? void 0 : _b.type) == "template") {
+            return this.elementState.templateState.domElement;
+        }
+        else {
+            throw "No node element present";
         }
     }
     renderElement() {
@@ -292,7 +336,8 @@ class Component {
         }
         let childContext = new Context();
         childContext.parentComponentList = [...this.context.parentComponentList];
-        childContext.parentComponentList.push(this);
+        if (this.addToContextTree)
+            childContext.parentComponentList.push(this);
         if (this.elementState == null) {
             if (result.type == "component") {
                 let componentObject = new result.component(result.props);
@@ -303,7 +348,6 @@ class Component {
                 };
                 componentObject.attachContext(childContext);
                 componentObject.renderElement();
-                this.domElement = componentObject.domElement;
             }
             else if (result.type == "template") {
                 let { domElement, nodes } = result.template.clone();
@@ -319,7 +363,6 @@ class Component {
                     templateState: templateState,
                 };
                 result.templateFunction(templateState, childContext);
-                this.domElement = this.elementState.templateState.domElement;
             }
             else {
                 throw "render() function returned a string/array. Must return a JSX element of an HTML tag or a Component";
@@ -329,11 +372,10 @@ class Component {
         else {
             if (this.elementState.type == "component" && result.type == "component" && this.elementState.component == result.component) {
                 this.elementState.componentObject.updateWithProps(result.props);
-                this.domElement = this.elementState.componentObject.domElement;
                 return false;
             }
             else if (this.elementState.type == "template" && result.type == "template" && this.elementState.template == result.template) {
-                /* START For hot reload */
+                // START For hot reload
                 let { domElement, nodes } = result.template.clone();
                 let oldDomElement = this.elementState.templateState.domElement;
                 this.elementState.templateState = {
@@ -341,12 +383,11 @@ class Component {
                     children: this.elementState.templateState.children,
                     nodes: nodes,
                 };
-                /* END For hot reload */
+                // END For hot reload
                 result.templateFunction(this.elementState.templateState, childContext);
-                /* START For hot reload */
+                // START For hot reload
                 oldDomElement.replaceWith(domElement);
-                this.domElement = domElement;
-                /* END For hot reload */
+                // END For hot reload
                 return false;
             }
             else {
@@ -355,7 +396,7 @@ class Component {
                     componentObject.attachContext(childContext);
                     componentObject.renderElement();
                     if (this.elementState.type == "component") {
-                        this.elementState.componentObject.domElement.replaceWith(componentObject.domElement);
+                        this.elementState.componentObject.getDomElement().replaceWith(componentObject.domElement);
                     }
                     else {
                         this.elementState.templateState.domElement.replaceWith(componentObject.domElement);
@@ -375,7 +416,7 @@ class Component {
                     };
                     result.templateFunction(templateState, childContext);
                     if (this.elementState.type == "component") {
-                        this.elementState.componentObject.domElement.replaceWith(templateState.domElement);
+                        this.elementState.componentObject.getDomElement().replaceWith(templateState.domElement);
                     }
                     else {
                         this.elementState.templateState.domElement.replaceWith(templateState.domElement);
@@ -401,8 +442,47 @@ class Component {
         return {};
     }
     ;
+    dispose() {
+        if (this.elementState != null) {
+            disposeElement(this.elementState);
+        }
+        super.dispose();
+    }
 }
 exports.Component = Component;
+class Sub extends BaseComponent {
+    constructor(props) {
+        super(props);
+    }
+    getDomElement() {
+        console.log("Fetching sub element");
+        let ele = this.props.child.getDomElement();
+        console.log(ele);
+        return ele;
+    }
+    attachContext(context) {
+        super.attachContext(context);
+        this.props.child.attachContext(this.context);
+    }
+    dettachContext() {
+        this.props.child.dettachContext();
+        super.dettachContext();
+    }
+    didUpdateProps(oldProps) {
+        if (this.props.child != oldProps.child) {
+            oldProps.child.dettachContext();
+            this.props.child.attachContext(this.context);
+        }
+    }
+    renderElement() {
+        this.props.child.renderElement();
+    }
+    dispose() {
+        this.props.child.dettachContext();
+        super.dispose();
+    }
+}
+exports.Sub = Sub;
 let rootElemntUid;
 let rootElementStates;
 function attach(element, result) {

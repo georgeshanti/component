@@ -59,8 +59,8 @@ type ArrayElementState = {
 };
 type ComponentState = {
     type: "component";
-    component: typeof Component;
-    componentObject: Component<any>;
+    component: typeof BaseComponent;
+    componentObject: BaseComponent<any>;
 };
 type TemplateElementState = {
     type: "template";
@@ -70,7 +70,7 @@ type TemplateElementState = {
 };
 type ComponentResult = {
     type: "component";
-    component: typeof Component;
+    component: typeof BaseComponent;
     props: {
         [key: string]: any;
     };
@@ -85,30 +85,51 @@ type ElementState = undefined | null | TextNodeState | ArrayElementState | Compo
 type NodeWrapper = {
     node: Node | null;
 };
-export declare function compareAndCreate(elementState: ElementState, result: Result, parent: Node, previousNode: NodeWrapper, context: Context): ElementState;
+export declare function compareAndCreate(elementState: ElementState, result: Result | number, parent: Node, previousNode: NodeWrapper, context: Context): ElementState;
 export declare class Context {
     parentComponentList: Component<any>[];
 }
 export declare function findParentOfType<Props extends {
     [key: string]: any;
 }>(context: Context, parentType: typeof Component<Props>): Component<any> | null;
-export declare class Component<Props extends {
+export declare class BaseComponent<Props extends {
     [key: string]: any;
 }> {
     props: Props;
-    elementState: ComponentState | TemplateElementState | null;
-    domElement?: Node;
     context?: Context;
-    markedForRerender: boolean;
+    getDomElement(): Node;
     constructor(props: Props);
     attachContext(context: Context): void;
     dettachContext(): void;
-    updateWithProps(props: Props): boolean;
+    updateWithProps(props: Props): void;
+    renderElement(): void;
     didUpdateProps(oldProps: Props): void;
     dispose(): void;
+}
+export declare class Component<Props extends {
+    [key: string]: any;
+}> extends BaseComponent<Props> {
+    elementState: ComponentState | TemplateElementState | null;
+    markedForRerender: boolean;
+    addToContextTree: boolean;
+    constructor(props: Props);
+    getDomElement(): Node;
     renderElement(): boolean;
     setState(): void;
     render(): any;
+    dispose(): void;
+}
+type SubComponentProps = {
+    child: BaseComponent<any>;
+};
+export declare class Sub extends BaseComponent<SubComponentProps> {
+    constructor(props: SubComponentProps);
+    getDomElement(): Node;
+    attachContext(context: Context): void;
+    dettachContext(): void;
+    didUpdateProps(oldProps: SubComponentProps): void;
+    renderElement(): void;
+    dispose(): void;
 }
 export declare function attach(element: HTMLElement, result: any): any;
 export {};

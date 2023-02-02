@@ -75,8 +75,8 @@ type ArrayElementState = {
 
 type ComponentState = {
     type: "component",
-    component: typeof Component,
-    componentObject: Component<any>,
+    component: typeof BaseComponent,
+    componentObject: BaseComponent<any>,
 }
 
 type TemplateElementState = {
@@ -88,7 +88,7 @@ type TemplateElementState = {
 
 type ComponentResult = {
     type: "component",
-    component: typeof Component,
+    component: typeof BaseComponent,
     props: {[key: string]: any}
 }
 
@@ -126,7 +126,7 @@ type NodeWrapper = {
 }
 
 function createResult(result: Result, parent: Node, previousNode: NodeWrapper, context: Context): ElementState | null{
-    if(result==null || result==undefined || result==false){
+    if(result==null || result==undefined || result===false){
         return null;
     }else if(typeof result==="string"){
         let nextNode = document.createTextNode(result);
@@ -156,11 +156,11 @@ function createResult(result: Result, parent: Node, previousNode: NodeWrapper, c
         componentObject.attachContext(context);
         let addToTree = componentObject.renderElement();
         if(previousNode.node!=null){
-            (previousNode.node as Element).after(componentObject.domElement!);
+            (previousNode.node as Element).after(componentObject.getDomElement());
         }else{
-            (parent as Element).prepend(componentObject.domElement!);
+            (parent as Element).prepend(componentObject.getDomElement());
         }
-        previousNode.node=componentObject.domElement!;
+        previousNode.node=componentObject.getDomElement();
         return {
             type: "component",
             component: result.component,
@@ -196,6 +196,19 @@ function replaceElement(elementState: ElementState, _result: Result, parent: Nod
     if(elementState.type=="string"){
         let result = _result as string;
         if(elementState.value==result){
+            // START For hot reload
+            elementState.value=result;
+            let domElement = document.createTextNode(result);
+            (elementState.domElement as Element).replaceWith(domElement);
+            elementState.domElement = domElement;
+
+            if(previousNode.node!=null){
+                (previousNode.node as Element).after(domElement);
+            }else{
+                (parent as Element).prepend(domElement);
+            }
+            // END For hot reload
+
             previousNode.node=elementState!.domElement;
             return elementState;
         }else{
@@ -204,13 +217,13 @@ function replaceElement(elementState: ElementState, _result: Result, parent: Nod
             (elementState.domElement as Element).replaceWith(domElement);
             elementState.domElement = domElement;
 
-            /* START For hot reload */
+            // START For hot reload
             if(previousNode.node!=null){
                 (previousNode.node as Element).after(domElement);
             }else{
                 (parent as Element).prepend(domElement);
             }
-            /* END For hot reload */
+            // END For hot reload
 
             previousNode.node=domElement;
             return elementState;
@@ -239,24 +252,24 @@ function replaceElement(elementState: ElementState, _result: Result, parent: Nod
         let result = _result as ComponentResult;
         elementState.componentObject.updateWithProps(result.props);
 
-        /* START For hot reload */
+        // START For hot reload
         if(previousNode.node!=null){
-            (previousNode.node as Element).after(elementState.componentObject.domElement!);
+            (previousNode.node as Element).after(elementState.componentObject.getDomElement());
         }else{
-            (parent as Element).prepend(elementState.componentObject.domElement!);
+            (parent as Element).prepend(elementState.componentObject.getDomElement());
         }
-        /* END For hot reload */
+        // END For hot reload
 
-        previousNode.node=elementState.componentObject.domElement!;
+        previousNode.node=elementState.componentObject.getDomElement();
         return elementState;
     }else if(elementState.type=="template"){
         let result = _result as TemplateResult;
 
-        /* Without hot reload */
-        /* elementState.templateFunction(elementState.templateState, context); */
-        /* Without hot reload */
+        // Without hot reload
+        // elementState.templateFunction(elementState.templateState, context);
+        // Without hot reload
 
-        /* START For hot reload */
+        // START For hot reload
         let {domElement, nodes} = result.template.clone();
         let oldDomElement = elementState.templateState.domElement;
         elementState.templateState = {
@@ -271,7 +284,7 @@ function replaceElement(elementState: ElementState, _result: Result, parent: Nod
         }else{
             (parent as Element).prepend(elementState.templateState.domElement!);
         }
-        /* END For hot reload */
+        // END For hot reload
 
         previousNode.node=elementState.templateState.domElement;
         return elementState;
@@ -280,8 +293,9 @@ function replaceElement(elementState: ElementState, _result: Result, parent: Nod
     }
 }
 
-export function compareAndCreate(elementState: ElementState, result: Result, parent: Node, previousNode: NodeWrapper, context: Context): ElementState{
-    result = result==false?null:result;
+export function compareAndCreate(elementState: ElementState, result: Result | number, parent: Node, previousNode: NodeWrapper, context: Context): ElementState{
+    result = result===false?null:result;
+    result = (typeof result=="number")?result.toString():result;
     if(elementState==null && result==null){
         return null;
     }else if (elementState==null && result!=null){
@@ -324,13 +338,13 @@ export function findParentOfType<Props extends {[key:string]: any}>(context: Con
     return null;
 }
 
-export class Component<Props extends {[key: string]: any}>{
+export class BaseComponent<Props extends {[key: string]: any}>{
     props: Props;
-    elementState: ComponentState | TemplateElementState | null = null;
-    domElement?: Node;
     context?: Context;
-    markedForRerender: boolean = false;
-    addToContextTree: boolean = false;
+
+    getDomElement(): Node{
+        throw "Unimplemented";
+    }
 
     constructor(props: Props){
         this.props = props;
@@ -348,14 +362,34 @@ export class Component<Props extends {[key: string]: any}>{
         let oldProps: Props = this.props;
         this.props = props;
         this.didUpdateProps(oldProps);
-        return this.renderElement();
+        this.renderElement();
+    }
+
+    renderElement(){
+        throw "Unimplemented";
     }
 
     didUpdateProps(oldProps: Props): void{}
 
-    dispose(): void{
-        if(this.elementState!=null){
-            disposeElement(this.elementState);
+    dispose(): void{}
+}
+
+export class Component<Props extends {[key: string]: any}> extends BaseComponent<Props>{
+    elementState: ComponentState | TemplateElementState | null = null;
+    markedForRerender: boolean = false;
+    addToContextTree: boolean = false;
+
+    constructor(props: Props){
+        super(props);
+    }
+
+    getDomElement(): Node {
+        if(this.elementState?.type=="component"){
+            return this.elementState.componentObject.getDomElement();
+        }else if(this.elementState?.type=="template"){
+            return this.elementState.templateState.domElement;
+        }else{
+            throw "No node element present";
         }
     }
 
@@ -383,7 +417,6 @@ export class Component<Props extends {[key: string]: any}>{
                 }
                 componentObject.attachContext(childContext);
                 componentObject.renderElement();
-                this.domElement = componentObject.domElement;
             }
             else if(result.type=="template"){
                 let {domElement, nodes} = result.template.clone();
@@ -399,7 +432,6 @@ export class Component<Props extends {[key: string]: any}>{
                     templateState: templateState,
                 }
                 result.templateFunction(templateState, childContext);
-                this.domElement = this.elementState.templateState.domElement;
             }else{
                 throw "render() function returned a string/array. Must return a JSX element of an HTML tag or a Component"
             }
@@ -407,11 +439,10 @@ export class Component<Props extends {[key: string]: any}>{
         }else{
             if(this.elementState.type=="component" && result.type=="component" && this.elementState.component==result.component){
                 this.elementState.componentObject.updateWithProps(result.props);
-                this.domElement = this.elementState.componentObject.domElement;
                 return false;
             }else if(this.elementState.type=="template" && result.type=="template" && this.elementState.template==result.template){
 
-                /* START For hot reload */
+                // START For hot reload
                 let {domElement, nodes} = result.template.clone();
                 let oldDomElement = this.elementState.templateState.domElement;
                 this.elementState.templateState = {
@@ -419,14 +450,13 @@ export class Component<Props extends {[key: string]: any}>{
                     children: this.elementState.templateState.children,
                     nodes: nodes,
                 };
-                /* END For hot reload */
+                // END For hot reload
 
                 result.templateFunction(this.elementState.templateState, childContext);
                 
-                /* START For hot reload */
+                // START For hot reload
                 (oldDomElement as Element).replaceWith(domElement);
-                this.domElement = domElement;
-                /* END For hot reload */
+                // END For hot reload
                 
                 return false;
             }else{
@@ -435,7 +465,7 @@ export class Component<Props extends {[key: string]: any}>{
                     componentObject.attachContext(childContext);
                     componentObject.renderElement();
                     if(this.elementState.type=="component"){
-                        (this.elementState.componentObject.domElement as Element).replaceWith(componentObject.domElement);
+                        (this.elementState.componentObject.getDomElement() as Element).replaceWith(componentObject.domElement);
                     }else{
                         (this.elementState.templateState.domElement as Element).replaceWith(componentObject.domElement);
                     }
@@ -453,7 +483,7 @@ export class Component<Props extends {[key: string]: any}>{
                     };
                     result.templateFunction(templateState, childContext);
                     if(this.elementState.type=="component"){
-                        (this.elementState.componentObject.domElement as Element).replaceWith(templateState.domElement);
+                        (this.elementState.componentObject.getDomElement() as Element).replaceWith(templateState.domElement);
                     }else{
                         (this.elementState.templateState.domElement as Element).replaceWith(templateState.domElement);
                     }
@@ -478,6 +508,52 @@ export class Component<Props extends {[key: string]: any}>{
     render(): any{
         return {};
     };
+
+    dispose(): void {
+        if(this.elementState!=null){
+            disposeElement(this.elementState);
+        }
+        super.dispose();
+    }
+}
+
+type SubComponentProps = {child: BaseComponent<any>}
+
+export class Sub extends BaseComponent<SubComponentProps>{
+    constructor(props: SubComponentProps){
+        super(props);
+    }
+
+    getDomElement(): Node {
+        let ele = this.props.child.getDomElement();
+        return ele;
+    }
+
+    attachContext(context: Context): void {
+        super.attachContext(context);
+        this.props.child.attachContext(this.context!);
+    }
+
+    dettachContext(): void {
+        this.props.child.dettachContext();
+        super.dettachContext();
+    }
+
+    didUpdateProps(oldProps: SubComponentProps): void {
+        if(this.props.child!=oldProps.child){
+            oldProps.child.dettachContext();
+            this.props.child.attachContext(this.context!);
+        }
+    }
+
+    renderElement(): void {
+        this.props.child.renderElement();
+    }
+
+    dispose(): void {
+        this.props.child.dettachContext();
+        super.dispose();
+    }
 }
 
 let rootElemntUid: number;
