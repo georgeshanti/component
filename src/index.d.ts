@@ -48,38 +48,40 @@ export declare class Template {
         };
     };
 }
-type TextNodeState = {
-    type: "string";
+export declare class TextNodeState {
     value: string;
     domElement: Node;
-};
-type ArrayElementState = {
-    type: "array";
+    constructor(value: string, domElement: Node);
+}
+export declare class ArrayElementState {
     children: ElementState[];
-};
-type ComponentState = {
-    type: "component";
+    constructor(children: ElementState[]);
+}
+export declare class ComponentState {
     component: typeof BaseComponent;
     componentObject: BaseComponent<any>;
-};
-type TemplateElementState = {
-    type: "template";
+    constructor(component: typeof BaseComponent, componentObject: BaseComponent<any>);
+}
+export declare class TemplateElementState {
     template: Template;
     templateFunction: TemplateFunction;
     templateState: TemplateState;
-};
-type ComponentResult = {
-    type: "component";
+    constructor(template: Template, templateFunction: TemplateFunction, templateState: TemplateState);
+}
+export declare class ComponentResult {
     component: typeof BaseComponent;
     props: {
         [key: string]: any;
     };
-};
-type TemplateResult = {
-    type: "template";
+    constructor(component: typeof BaseComponent, props: {
+        [key: string]: any;
+    });
+}
+export declare class TemplateResult {
     template: Template;
     templateFunction: TemplateFunction;
-};
+    constructor(template: Template, templateFunction: TemplateFunction);
+}
 type Result = undefined | null | false | string | Result[] | ComponentResult | TemplateResult;
 type ElementState = undefined | null | TextNodeState | ArrayElementState | ComponentState | TemplateElementState;
 type NodeWrapper = {

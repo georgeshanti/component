@@ -9,33 +9,14 @@ module.exports = function (babel) {
     /* Declare common identifiers to be used */
     let template = t.identifier("template");
     let templateClass = t.identifier("Template");
-    let getElement = t.identifier("getElement");
+    let componentResultClass = t.identifier("ComponentResult");
+    let templateResultClass = t.identifier("TemplateResult");
     let compareAndCreate = t.identifier("compareAndCreate");
     let templateState = t.identifier("templateState");
     let anchor = t.identifier("anchor");
     let context = t.identifier("context");
 
     /* Declare reused statements */
-
-    let componentJSXStatement = (componentName, attributes)=>t.objectExpression([
-        t.objectProperty(t.identifier("type"), t.stringLiteral("component")),
-        t.objectProperty(t.identifier("component"), t.identifier(componentName)),
-        t.objectProperty(t.identifier("props"), t.objectExpression(
-                attributes.map(attribute=>{
-                    if(attribute.name.type!="JSXIdentifier"){
-                        throw "Attribute names must be fixed";
-                    }
-                    if(attribute.value.type=="StringLiteral"){
-                        return t.objectProperty(t.identifier(attribute.name.name), t.stringLiteral(attribute.value.value));
-                    }else if(attribute.value.type=="JSXExpressionContainer"){
-                        return t.objectProperty(t.identifier(attribute.name.name), attribute.value.expression);
-                    }else{
-                        throw "Attribute value must either be a string or a JSXExpressionContainer ie. {}";
-                    }
-                })
-            )
-        ),
-    ])
     
     let nextNodeExpressionSetter = (childIndex, expression, parentIdentifier, previousIdentifier)=>t.expressionStatement(
         t.assignmentExpression(
@@ -72,6 +53,31 @@ module.exports = function (babel) {
             Program(path){
                 let currentProgram = path.node;
                 let templateCounter=0;
+                let componentCounter=0;
+
+                let componentJSXStatement = (componentName, attributes)=>{
+                    componentCounter++;
+                    return t.newExpression(
+                        componentResultClass,
+                        [
+                            t.identifier(componentName),
+                            t.objectExpression(
+                                attributes.map(attribute=>{
+                                    if(attribute.name.type!="JSXIdentifier"){
+                                        throw "Attribute names must be fixed";
+                                    }
+                                    if(attribute.value.type=="StringLiteral"){
+                                        return t.objectProperty(t.identifier(attribute.name.name), t.stringLiteral(attribute.value.value));
+                                    }else if(attribute.value.type=="JSXExpressionContainer"){
+                                        return t.objectProperty(t.identifier(attribute.name.name), attribute.value.expression);
+                                    }else{
+                                        throw "Attribute value must either be a string or a JSXExpressionContainer ie. {}";
+                                    }
+                                })
+                            )
+                        ]
+                    );
+                };
             
                 function createTemplateFunction(jsxElement){ 
                     let templateChildIndex = 0;
@@ -233,12 +239,13 @@ module.exports = function (babel) {
                     currentProgram.body.unshift(variableDeclaration);
                     let arrowFunction = t.arrowFunctionExpression([templateState, context], t.blockStatement(statements, []), false);
 
-                    let object = t.objectExpression([
-                        t.objectProperty(t.identifier("type"), t.stringLiteral("template")),
-                        t.objectProperty(template, templateIdentifier),
-                        t.objectProperty(t.identifier("templateFunction"), arrowFunction),
-                        // t.objectProperty(t.identifier("templateName"), t.stringLiteral(`template_${templateCounter}`)),
-                    ])
+                    let object = t.newExpression(
+                        templateResultClass,
+                        [
+                            templateIdentifier,
+                            arrowFunction,
+                        ]
+                    );
                     templateCounter++;
                     return object;
                 }
@@ -256,13 +263,22 @@ module.exports = function (babel) {
                 })
 
                 /* Add template import statement if atleast one template was generated */
+                let imports = [];
                 if(templateCounter>0){
+                    imports.push(...[
+                        t.objectProperty(templateClass, templateClass, false, true),
+                        t.objectProperty(templateResultClass, templateResultClass, false, true),
+                    ])
+                }
+
+                if(componentCounter>0){
+                    imports.push(t.objectProperty(componentResultClass, componentResultClass, false, true))
+                }
+
+                if(templateCounter>0 || componentCounter>0){
+                    imports.push(t.objectProperty(compareAndCreate, compareAndCreate, false, true))
                     let templateImporter = t.variableDeclarator(
-                        t.objectPattern([
-                            t.objectProperty(templateClass, templateClass, false, true),
-                            t.objectProperty(getElement, getElement, false, true),
-                            t.objectProperty(compareAndCreate, compareAndCreate, false, true),
-                        ]),
+                        t.objectPattern(imports),
                         t.callExpression(
                             t.identifier("require"),
                             [t.stringLiteral("component")]

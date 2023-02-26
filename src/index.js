@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.attach = exports.SubComponent = exports.SubElement = exports.Component = exports.BaseComponent = exports.findParentOfType = exports.Context = exports.compareAndCreate = exports.Template = exports.createRef = void 0;
+exports.attach = exports.SubComponent = exports.SubElement = exports.Component = exports.BaseComponent = exports.findParentOfType = exports.Context = exports.compareAndCreate = exports.TemplateResult = exports.ComponentResult = exports.TemplateElementState = exports.ComponentState = exports.ArrayElementState = exports.TextNodeState = exports.Template = exports.createRef = void 0;
 function createRef() {
     return { element: undefined };
 }
@@ -23,22 +23,64 @@ class Template {
     }
 }
 exports.Template = Template;
+class TextNodeState {
+    constructor(value, domElement) {
+        this.value = value;
+        this.domElement = domElement;
+    }
+}
+exports.TextNodeState = TextNodeState;
+class ArrayElementState {
+    constructor(children) {
+        this.children = children;
+    }
+}
+exports.ArrayElementState = ArrayElementState;
+class ComponentState {
+    constructor(component, componentObject) {
+        this.component = component;
+        this.componentObject = componentObject;
+    }
+}
+exports.ComponentState = ComponentState;
+class TemplateElementState {
+    constructor(template, templateFunction, templateState) {
+        this.template = template;
+        this.templateFunction = templateFunction;
+        this.templateState = templateState;
+    }
+}
+exports.TemplateElementState = TemplateElementState;
+class ComponentResult {
+    constructor(component, props) {
+        this.component = component;
+        this.props = props;
+    }
+}
+exports.ComponentResult = ComponentResult;
+class TemplateResult {
+    constructor(template, templateFunction) {
+        this.template = template;
+        this.templateFunction = templateFunction;
+    }
+}
+exports.TemplateResult = TemplateResult;
 function disposeElement(elementState) {
     if (elementState == undefined || elementState == null) {
         return;
     }
-    if (elementState.type == "string") {
+    if (elementState instanceof TextNodeState) {
         elementState.domElement.remove();
     }
-    else if (elementState.type == "array") {
+    else if (elementState instanceof ArrayElementState) {
         for (let childElementState of elementState.children) {
             disposeElement(childElementState);
         }
     }
-    else if (elementState.type == "component") {
+    else if (elementState instanceof ComponentState) {
         elementState.componentObject.dispose();
     }
-    else if (elementState.type == "template") {
+    else if (elementState instanceof TemplateElementState) {
         for (let childElementState of elementState.templateState.children) {
             disposeElement(childElementState);
         }
@@ -58,11 +100,7 @@ function createResult(result, parent, previousNode, context) {
             parent.prepend(nextNode);
         }
         previousNode.node = nextNode;
-        return {
-            type: "string",
-            value: result,
-            domElement: nextNode,
-        };
+        return new TextNodeState(result, nextNode);
     }
     else if (Array.isArray(result)) {
         let children = [];
@@ -70,12 +108,9 @@ function createResult(result, parent, previousNode, context) {
             const newElementState = createResult(childResult, parent, previousNode, context);
             children.push(newElementState);
         }
-        return {
-            type: "array",
-            children: children,
-        };
+        return new ArrayElementState(children);
     }
-    else if (result.type == "component") {
+    else if (result instanceof ComponentResult) {
         let componentObject = new result.component(result.props);
         componentObject.attachContext(context);
         let addToTree = componentObject.renderElement();
@@ -86,13 +121,9 @@ function createResult(result, parent, previousNode, context) {
             parent.prepend(componentObject.getDomElement());
         }
         previousNode.node = componentObject.getDomElement();
-        return {
-            type: "component",
-            component: result.component,
-            componentObject: componentObject,
-        };
+        return new ComponentState(result.component, componentObject);
     }
-    else if (result.type == "template") {
+    else if (result instanceof TemplateResult) {
         let { domElement: nextNode, nodes } = result.template.clone();
         let templateState = {
             domElement: nextNode,
@@ -107,12 +138,7 @@ function createResult(result, parent, previousNode, context) {
             parent.prepend(nextNode);
         }
         previousNode.node = nextNode;
-        return {
-            type: "template",
-            template: result.template,
-            templateFunction: result.templateFunction,
-            templateState: templateState,
-        };
+        new TemplateElementState(result.template, result.templateFunction, templateState);
     }
     else {
         throw "Unhandled condition";
@@ -122,7 +148,7 @@ function replaceElement(elementState, _result, parent, previousNode, context) {
     if (elementState == null) {
         throw "Cannot replace null element";
     }
-    if (elementState.type == "string") {
+    if (elementState instanceof TextNodeState) {
         let result = _result;
         if (elementState.value == result) {
             // START For hot reload
@@ -157,7 +183,7 @@ function replaceElement(elementState, _result, parent, previousNode, context) {
             return elementState;
         }
     }
-    else if (elementState.type == "array") {
+    else if (elementState instanceof ArrayElementState) {
         let index = 0;
         let result = _result;
         while (index < elementState.children.length && index < result.length) {
@@ -178,7 +204,7 @@ function replaceElement(elementState, _result, parent, previousNode, context) {
         }
         return elementState;
     }
-    else if (elementState.type == "component") {
+    else if (elementState instanceof ComponentState) {
         let result = _result;
         elementState.componentObject.updateWithProps(result.props);
         // START For hot reload
@@ -192,7 +218,7 @@ function replaceElement(elementState, _result, parent, previousNode, context) {
         previousNode.node = elementState.componentObject.getDomElement();
         return elementState;
     }
-    else if (elementState.type == "template") {
+    else if (elementState instanceof TemplateElementState) {
         let result = _result;
         // Without hot reload
         // elementState.templateFunction(elementState.templateState, context);
@@ -236,12 +262,13 @@ function compareAndCreate(elementState, result, parent, previousNode, context) {
         return null;
     }
     else if (elementState != null && result != null) {
-        if ((typeof result == "string" && elementState.type != "string") ||
-            (Array.isArray(result) && elementState.type != "array") ||
+        if ((typeof result == "string" && !(elementState instanceof TextNodeState)) ||
+            (Array.isArray(result) && !(elementState instanceof ArrayElementState)) ||
             ((typeof result != "string" && !Array.isArray(result)) &&
-                ((result.type != elementState.type) ||
-                    (result.type == "component" && elementState.type == "component" && result.component != elementState.component) ||
-                    (result.type == "template" && elementState.type == "template" && result.template != elementState.template)))) {
+                ((result instanceof TemplateResult && elementState instanceof ComponentState) ||
+                    (result instanceof ComponentResult && elementState instanceof TemplateElementState) ||
+                    (result instanceof ComponentResult && elementState instanceof ComponentState && result.component != elementState.component) ||
+                    (result instanceof TemplateResult && elementState instanceof TemplateElementState && result.template != elementState.template)))) {
             disposeElement(elementState);
             return createResult(result, parent, previousNode, context);
         }
@@ -302,11 +329,10 @@ class Component extends BaseComponent {
         this.addToContextTree = false;
     }
     getDomElement() {
-        var _a, _b;
-        if (((_a = this.elementState) === null || _a === void 0 ? void 0 : _a.type) == "component") {
+        if (this.elementState instanceof ComponentState) {
             return this.elementState.componentObject.getDomElement();
         }
-        else if (((_b = this.elementState) === null || _b === void 0 ? void 0 : _b.type) == "template") {
+        else if (this.elementState instanceof TemplateElementState) {
             return this.elementState.templateState.domElement;
         }
         else {
@@ -328,29 +354,20 @@ class Component extends BaseComponent {
         if (this.addToContextTree)
             childContext.parentComponentList.push(this);
         if (this.elementState == null) {
-            if (result.type == "component") {
+            if (result instanceof ComponentResult) {
                 let componentObject = new result.component(result.props);
-                this.elementState = {
-                    type: "component",
-                    component: result.component,
-                    componentObject: componentObject,
-                };
+                this.elementState = new ComponentState(result.component, componentObject);
                 componentObject.attachContext(childContext);
                 componentObject.renderElement();
             }
-            else if (result.type == "template") {
+            else if (result instanceof TemplateResult) {
                 let { domElement, nodes } = result.template.clone();
                 let templateState = {
                     domElement: domElement,
                     children: [],
                     nodes: nodes,
                 };
-                this.elementState = {
-                    type: "template",
-                    template: result.template,
-                    templateFunction: result.templateFunction,
-                    templateState: templateState,
-                };
+                this.elementState = new TemplateElementState(result.template, result.templateFunction, templateState);
                 result.templateFunction(templateState, childContext);
             }
             else {
@@ -359,11 +376,11 @@ class Component extends BaseComponent {
             return true;
         }
         else {
-            if (this.elementState.type == "component" && result.type == "component" && this.elementState.component == result.component) {
+            if (this.elementState instanceof ComponentState && result instanceof ComponentResult && this.elementState.component == result.component) {
                 this.elementState.componentObject.updateWithProps(result.props);
                 return false;
             }
-            else if (this.elementState.type == "template" && result.type == "template" && this.elementState.template == result.template) {
+            else if (this.elementState instanceof TemplateElementState && result instanceof TemplateResult && this.elementState.template == result.template) {
                 // START For hot reload
                 let { domElement, nodes } = result.template.clone();
                 let oldDomElement = this.elementState.templateState.domElement;
@@ -380,23 +397,19 @@ class Component extends BaseComponent {
                 return false;
             }
             else {
-                if (result.type == "component") {
+                if (result instanceof ComponentResult) {
                     let componentObject = new result.component(result.props);
                     componentObject.attachContext(childContext);
                     componentObject.renderElement();
-                    if (this.elementState.type == "component") {
-                        this.elementState.componentObject.getDomElement().replaceWith(componentObject.domElement);
+                    if (this.elementState instanceof ComponentState) {
+                        this.elementState.componentObject.getDomElement().replaceWith(componentObject.getDomElement());
                     }
                     else {
-                        this.elementState.templateState.domElement.replaceWith(componentObject.domElement);
+                        this.elementState.templateState.domElement.replaceWith(componentObject.getDomElement());
                     }
-                    this.elementState = {
-                        type: "component",
-                        component: result.component,
-                        componentObject: componentObject,
-                    };
+                    this.elementState = new ComponentState(result.component, componentObject);
                 }
-                else if (result.type == "template") {
+                else if (result instanceof TemplateResult) {
                     let { domElement, nodes } = result.template.clone();
                     let templateState = {
                         domElement: domElement,
@@ -404,18 +417,13 @@ class Component extends BaseComponent {
                         nodes: nodes,
                     };
                     result.templateFunction(templateState, childContext);
-                    if (this.elementState.type == "component") {
+                    if (this.elementState instanceof ComponentState) {
                         this.elementState.componentObject.getDomElement().replaceWith(templateState.domElement);
                     }
                     else {
                         this.elementState.templateState.domElement.replaceWith(templateState.domElement);
                     }
-                    this.elementState = {
-                        type: "template",
-                        template: result.template,
-                        templateFunction: result.templateFunction,
-                        templateState: templateState,
-                    };
+                    this.elementState = new TemplateElementState(result.template, result.templateFunction, templateState);
                 }
                 else {
                     throw "render() function returned a string/array. Must return a JSX element of an HTML tag or a Component";

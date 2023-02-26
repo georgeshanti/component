@@ -32,7 +32,7 @@ module.exports = {
           loader: 'babel-loader',
           options: {
               "presets": ["@babel/preset-typescript"],
-              "plugins": ["component/babel-plugin-component", "component/babel-plugin-component-hmr"]
+              "plugins": ["component/babel-plugin-component"]
           }
         },
         resolve: {
