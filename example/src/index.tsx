@@ -1,4 +1,4 @@
-import { Component, Context, findParentOfType, attach, createRef, Ref, Sub, BaseComponent } from "component";
+import { Component, Context, findParentOfType, attach, createRef, Ref, SubComponent, BaseComponent, SubElement } from "component";
 
 class K extends Component<{text: string}>{
     ref: Ref;
@@ -31,7 +31,7 @@ class Tree  extends Component<{}>{
     }
     increment(){
         this.count++;
-        this.setState();
+        this.renderElement();
     }
     render() {
         console.log(this.count.toString());
@@ -44,31 +44,39 @@ class G extends Component<{}>{
     showThere = true;
     k = 1;
     position: boolean = false;
-    child: BaseComponent<any>
+    child: BaseComponent<any>;
+    element: HTMLElement;
+    count: number = 0;
 
     constructor(props: {[key: string]: any}){
         super(props);
         this.child = new Tree({});
+        this.element = document.createElement('div');
+        this.element.innerHTML = this.count.toString();
+        this.element.onclick = (e)=>{
+            this.count++;
+            this.element.innerHTML = this.count.toString();
+        }
     }
 
     toggleHello(){
         this.showHello = !this.showHello;
-        this.setState();
+        this.renderElement();
     }
 
     toggleThere(){
         this.showThere = !this.showThere;
-        this.setState();
+        this.renderElement();
     }
 
     changeText(){
         this.k++;
-        this.setState();
+        this.renderElement();
     }
 
     switchPosition(){
         this.position = !this.position;
-        this.setState();
+        this.renderElement();
     }
 
     render() {
@@ -79,7 +87,7 @@ class G extends Component<{}>{
                 <span n="4" onClick={this.changeText.bind(this)} style="background:green;padding:4px;display:inline-block;">Increment count and toggle list length</span>&nbsp;&nbsp;&nbsp;&nbsp;
                 <span n="4" onClick={this.switchPosition.bind(this)} style="background:green;padding:4px;display:inline-block;">Switch</span>&nbsp;&nbsp;&nbsp;&nbsp;
                 <span n="5"></span>
-                {this.position && <Sub child={this.child}/>}
+                {this.position?<SubComponent child={this.child}/>:<SubElement child={this.element} />}
                 <div n="6"></div>
                 <span n="7"><span n="8"></span></span>
                 { this.showHello && (<span n="9">Hello</span>)}
@@ -90,7 +98,7 @@ class G extends Component<{}>{
                     { true && (<span n="14"></span>)}
                     <span n="15"></span>
                 </span>
-                {!this.position && <Sub child={this.child}/>}
+                {!this.position?<SubComponent child={this.child}/>:<SubElement child={this.element} />}
                 <span n="16"></span>
                 <K text={this.k.toString()}/>
                 {

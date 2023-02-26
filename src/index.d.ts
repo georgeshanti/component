@@ -115,14 +115,24 @@ export declare class Component<Props extends {
     constructor(props: Props);
     getDomElement(): Node;
     renderElement(): boolean;
-    setState(): void;
     render(): any;
+    dispose(): void;
+}
+type SubElementProps = {
+    child: HTMLElement;
+};
+export declare class SubElement extends BaseComponent<SubElementProps> {
+    constructor(props: SubElementProps);
+    getDomElement(): Node;
+    attachContext(context: Context): void;
+    dettachContext(): void;
+    renderElement(): void;
     dispose(): void;
 }
 type SubComponentProps = {
     child: BaseComponent<any>;
 };
-export declare class Sub extends BaseComponent<SubComponentProps> {
+export declare class SubComponent extends BaseComponent<SubComponentProps> {
     constructor(props: SubComponentProps);
     getDomElement(): Node;
     attachContext(context: Context): void;

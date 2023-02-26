@@ -395,9 +395,6 @@ export class Component<Props extends {[key: string]: any}> extends BaseComponent
 
     renderElement(): boolean{
         let result: any = this.render();
-        if(this.context==undefined){
-            return false;
-        }
         if(result==null || result==undefined || result==false){
             throw "render() function returned null/undefined/false. Must return a JSX element.";
         }
@@ -405,7 +402,9 @@ export class Component<Props extends {[key: string]: any}> extends BaseComponent
             throw "render() function returned a string/array. Must return a JSX element";
         }
         let childContext = new Context();
-        childContext.parentComponentList = [...this.context!.parentComponentList];
+        if(this.context!=undefined){
+            childContext.parentComponentList = [...this.context!.parentComponentList];
+        }
         if(this.addToContextTree) childContext.parentComponentList.push(this);
         if(this.elementState==null){
             if(result.type=="component"){
@@ -501,10 +500,6 @@ export class Component<Props extends {[key: string]: any}> extends BaseComponent
         }
     }
 
-    setState(){
-        this.renderElement();
-    }
-
     render(): any{
         return {};
     };
@@ -517,9 +512,37 @@ export class Component<Props extends {[key: string]: any}> extends BaseComponent
     }
 }
 
+type SubElementProps = {child: HTMLElement}
+
+export class SubElement extends BaseComponent<SubElementProps>{
+    constructor(props: SubElementProps){
+        super(props);
+    }
+
+    getDomElement(): Node {
+        return this.props.child;
+    }
+
+    attachContext(context: Context): void {
+        super.attachContext(context);
+    }
+
+    dettachContext(): void {
+        super.dettachContext();
+    }
+
+    renderElement(): void {
+        return;
+    }
+
+    dispose(): void {
+        super.dispose();
+    }
+}
+
 type SubComponentProps = {child: BaseComponent<any>}
 
-export class Sub extends BaseComponent<SubComponentProps>{
+export class SubComponent extends BaseComponent<SubComponentProps>{
     constructor(props: SubComponentProps){
         super(props);
     }

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.attach = exports.Sub = exports.Component = exports.BaseComponent = exports.findParentOfType = exports.Context = exports.compareAndCreate = exports.Template = exports.createRef = void 0;
+exports.attach = exports.SubComponent = exports.SubElement = exports.Component = exports.BaseComponent = exports.findParentOfType = exports.Context = exports.compareAndCreate = exports.Template = exports.createRef = void 0;
 function createRef() {
     return { element: undefined };
 }
@@ -46,15 +46,11 @@ function disposeElement(elementState) {
     }
 }
 function createResult(result, parent, previousNode, context) {
-    console.log(result, typeof result, typeof result === "string");
     if (result == null || result == undefined || result === false) {
-        console.log("It came in here");
         return null;
     }
     else if (typeof result === "string") {
-        console.log(result, parent, previousNode);
         let nextNode = document.createTextNode(result);
-        console.log(nextNode);
         if (previousNode.node != null) {
             previousNode.node.after(nextNode);
         }
@@ -226,26 +222,20 @@ function replaceElement(elementState, _result, parent, previousNode, context) {
     }
 }
 function compareAndCreate(elementState, result, parent, previousNode, context) {
-    console.log(result);
-    result = (typeof result == "boolean" && result == false) ? null : result;
+    result = result === false ? null : result;
     result = (typeof result == "number") ? result.toString() : result;
-    console.log(result, typeof result);
     if (elementState == null && result == null) {
-        console.log("1 here");
         return null;
     }
     else if (elementState == null && result != null) {
-        console.log("2 here");
         let obj = createResult(result, parent, previousNode, context);
         return obj;
     }
     else if (elementState != null && result == null) {
-        console.log("3 here");
         disposeElement(elementState);
         return null;
     }
     else if (elementState != null && result != null) {
-        console.log("4 here");
         if ((typeof result == "string" && elementState.type != "string") ||
             (Array.isArray(result) && elementState.type != "array") ||
             ((typeof result != "string" && !Array.isArray(result)) &&
@@ -325,9 +315,6 @@ class Component extends BaseComponent {
     }
     renderElement() {
         let result = this.render();
-        if (this.context == undefined) {
-            return false;
-        }
         if (result == null || result == undefined || result == false) {
             throw "render() function returned null/undefined/false. Must return a JSX element.";
         }
@@ -335,7 +322,9 @@ class Component extends BaseComponent {
             throw "render() function returned a string/array. Must return a JSX element";
         }
         let childContext = new Context();
-        childContext.parentComponentList = [...this.context.parentComponentList];
+        if (this.context != undefined) {
+            childContext.parentComponentList = [...this.context.parentComponentList];
+        }
         if (this.addToContextTree)
             childContext.parentComponentList.push(this);
         if (this.elementState == null) {
@@ -435,9 +424,6 @@ class Component extends BaseComponent {
             }
         }
     }
-    setState() {
-        this.renderElement();
-    }
     render() {
         return {};
     }
@@ -450,14 +436,33 @@ class Component extends BaseComponent {
     }
 }
 exports.Component = Component;
-class Sub extends BaseComponent {
+class SubElement extends BaseComponent {
     constructor(props) {
         super(props);
     }
     getDomElement() {
-        console.log("Fetching sub element");
+        return this.props.child;
+    }
+    attachContext(context) {
+        super.attachContext(context);
+    }
+    dettachContext() {
+        super.dettachContext();
+    }
+    renderElement() {
+        return;
+    }
+    dispose() {
+        super.dispose();
+    }
+}
+exports.SubElement = SubElement;
+class SubComponent extends BaseComponent {
+    constructor(props) {
+        super(props);
+    }
+    getDomElement() {
         let ele = this.props.child.getDomElement();
-        console.log(ele);
         return ele;
     }
     attachContext(context) {
@@ -482,7 +487,7 @@ class Sub extends BaseComponent {
         super.dispose();
     }
 }
-exports.Sub = Sub;
+exports.SubComponent = SubComponent;
 let rootElemntUid;
 let rootElementStates;
 function attach(element, result) {
