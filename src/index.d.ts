@@ -19,6 +19,7 @@ declare global {
             p: any;
             span: any;
             ul: any;
+            pre: any;
         }
     }
 }

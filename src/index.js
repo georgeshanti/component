@@ -138,7 +138,7 @@ function createResult(result, parent, previousNode, context) {
             parent.prepend(nextNode);
         }
         previousNode.node = nextNode;
-        new TemplateElementState(result.template, result.templateFunction, templateState);
+        return new TemplateElementState(result.template, result.templateFunction, templateState);
     }
     else {
         throw "Unhandled condition";

@@ -19,6 +19,7 @@ declare global {
             p: any;
             span: any;
             ul: any;
+            pre: any;
         }
     }
 }
@@ -197,7 +198,7 @@ function createResult(result: Result, parent: Node, previousNode: NodeWrapper, c
             (parent as Element).prepend(nextNode);
         }
         previousNode.node=nextNode;
-        new TemplateElementState(result.template, result.templateFunction, templateState);
+        return new TemplateElementState(result.template, result.templateFunction, templateState);
     }else{
         throw "Unhandled condition";
     }
